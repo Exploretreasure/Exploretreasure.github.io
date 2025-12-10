@@ -1,324 +1,91 @@
-<!DOCTYPE html>  
-<html lang="en">  
-<head>  
-    <meta charset="UTF-8">  
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
-    <title>歌唱祖国♪rasexp</title>  
-    <link rel="icon" type="image/png" href="https://creation.codemao.cn/716/appcraft/IMAGE_GQI9OjYT6g_1710218758654">
-    <style>  
-    body{background-repeat:no-repeat;
-background-size:cover;backdrop-filter: blur(3px);
-    transition: all 0.5s ease;}
-        .player {  
-            width: 100%;  
-            margin: 0 auto;  
-            text-align: center;
-        }  
-        .lyrics {  
-            height: 450px;  
-            overflow-y: auto;
-            overflow-x: hidden;
-            border: 0.0px solid #ccc;  
-            padding: 10px;  
-            margin-top: 20px;  
-            position: relative;
-            scroll-behavior: smooth; /* 添加平滑滚动效果 */
-        }  
-        .lyrics p {font-size:16px;
-            position: relative;  
-            margin: 5;  
-            line-height: 1.5;  
-            opacity: 0.5; 
-            transition: all 0.5s ease-in-out;  
-            pointer-events: none; /* 防止歌词遮挡点击事件 */  
-        }  
-        .lyrics p.active {  
-            transform: scale(2.3);  
-            opacity: 1;  
-            color: black;
-            -webkit-animation: flowCss 3s linear;
-        }  
-        .controls {  
-            margin-bottom: 20px;  
-        }  
-        
-#fullscreenButton {border-radius: 5px;
-    padding:3px 5px;
-    border: none;
-    cursor: pointer;}  
-  
-#fullscreenButton:hover {  
-    background-color: #45a049;
-    color: white;}
-    
-    .progress-bar {  
-            width: 100%;  
-            height: 1px;  
-            background-color: #ddd;  
-            border-radius: 10px;  
-            overflow: hidden;  
-        }  
-  
-        .progress {  
-            height: 100%;  
-            background-color: #4CAF50;  
-            width: 0%; /* This will be updated by JavaScript */  
-            border-radius: 10px;  
-        }
-        .hidden {  
-    display: none;}
-    </style>  
-</head>  
-<body>  
-    <div class="player">
-    <div class="controls">  
-            <button id="playButton" style="">▶</button>  
-            <button id="fullscreenButton">∷</button>
-            
-            <button class="audio-control" id="sp">♪</button>  
-            <button id="focusButton">←</button>
-<audio id="wow" src="https://creation.codemao.cn/716/appcraft/SOUND_LFsg2YVt__1714322119189.mp3" preload="auto"></audio>
-
-
-        <audio id="audioPlayer" preload="auto">  
-<source src="https://creation.codemao.cn/716/appcraft/SOUND_pomajn7nZ_1710254044883.mp3" type="audio/mpeg"> 您的浏览器不支持 audio 元素... </audio>  
-        <div id="v" class="hidden" ><div id="lyrics" class="lyrics">  
-<p data-start="00.00" data-end="01.00">歌唱祖国</p>
-<p data-start="01.00" data-end="02.00">作词 : 王莘 作曲 : 王莘</p>
-<p data-start="04.80" data-end="09.02">五星红旗迎风飘扬</p>
-<p data-start="09.02" data-end="13.20">胜利歌声多么响亮</p>
-<p data-start="13.20" data-end="17.37">歌唱我们亲爱的祖国</p>
-<p data-start="17.37" data-end="21.52">从今走向繁荣富强</p>
-<p data-start="21.52" data-end="25.79">歌唱我们亲爱的祖国</p>
-<p data-start="25.79" data-end="29.82">从今走向繁荣富强</p>
-<p data-start="29.82" data-end="30.46">♪</p>
-<p data-start="30.46" data-end="34.64">越过高山 越过平原</p>
-<p data-start="34.64" data-end="38.82">跨过奔腾的黄河长江</p>
-<p data-start="38.82" data-end="43.05">宽广美丽的土地</p>
-<p data-start="43.05" data-end="47.05">是我们亲爱的家乡</p>
-<p data-start="47.05" data-end="51.43">英雄的人民站起来了</p>
-<p data-start="51.73" data-end="54.95">我们团结友爱坚强如钢</p>
-<p data-start="54.95" data-end="59.14">五星红旗迎风飘扬</p>
-<p data-start="59.14" data-end="63.27">胜利歌声多么响亮</p>
-<p data-start="63.27" data-end="67.49">歌唱我们亲爱的祖国</p>
-<p data-start="67.49" data-end="71.76">从今走向繁荣富强</p>
-<p data-start="71.76" data-end="76.02">歌唱我们亲爱的祖国</p>
-<p data-start="76.02" data-end="80.03">从今走向繁荣富强</p>
-<p data-start="80.03" data-end="80.90">♪</p>
-<p data-start="80.90" data-end="84.99">我们勤劳 我们勇敢</p>
-<p data-start="84.99" data-end="89.12">独立自由是我们的理想</p>
-<p data-start="89.12" data-end="93.24">我们战胜了多少苦难</p>
-<p data-start="93.24" data-end="97.40">才得到今天的解放</p>
-<p data-start="97.40" data-end="99.30">我们爱和平</p>
-<p data-start="99.30" data-end="101.61">我们爱家乡</p>
-<p data-start="101.61" data-end="105.17">谁敢侵犯我们就叫他死亡</p>
-<p data-start="105.17" data-end="109.39">五星红旗迎风飘扬</p>
-<p data-start="109.39" data-end="113.64">胜利歌声多么响亮</p>
-<p data-start="113.64" data-end="117.79">歌唱我们亲爱的祖国</p>
-<p data-start="117.79" data-end="122.04">从今走向繁荣富强</p>
-<p data-start="122.04" data-end="126.32">歌唱我们亲爱的祖国</p>
-<p data-start="126.32" data-end="130.35">从今走向繁荣富强</p>
-<p data-start="130.35" data-end="131.08">♪</p>
-<p data-start="131.08" data-end="135.27">东方太阳 正在升起</p>
-<p data-start="135.27" data-end="139.42">人民共和国正在成长</p>
-<p data-start="139.42" data-end="143.71">我们领袖毛泽东</p>
-<p data-start="143.71" data-end="147.88">指引着前进的方向</p>
-<p data-start="147.88" data-end="152.17">我们的生活天天向上</p>
-<p data-start="152.17" data-end="155.72">我们的前程万丈光芒</p>
-<p data-start="155.72" data-end="159.95">五星红旗迎风飘扬</p>
-<p data-start="159.95" data-end="164.12">胜利歌声多么响亮</p>
-<p data-start="164.12" data-end="168.42">歌唱我们亲爱的祖国</p>
-<p data-start="168.42" data-end="172.72">从今走向繁荣富强</p>
-<p data-start="172.72" data-end="176.97">歌唱我们亲爱的祖国</p>
-<p data-start="176.97" data-end="180.30">从今走向繁荣富强</p>
-            <!-- ... 其他歌词 ... -->  
-        </div>
-        </div>
-        <div class="progress-bar">  
-    <div id="myProgress" class="progress"></div>  
-</div>
-</div>
-    </div>
-    
-    <div id="ct" class="hidden" style="margin-top:25%;width:100%;height:100px;display: flex;justify-content: center;align-items: center;"><img style="width:30%;height:auto;" src=""></div>
-      <style>
-    .lyrics p.active {
-            background: -webkit-linear-gradient(0deg,
-#000,#000,#000,#000,#000,#E5B300);
-            /* 文字颜色填充设置为透明 */
-            -webkit-text-fill-color: transparent;
-            /* 背景裁剪，即让文字使用背景色 */
-            -webkit-background-clip: text;
-            /* 背景图放大一下，看着柔和一些 */
-            -webkit-background-size: 200% 100%;
-        }
- 
-        @-webkit-keyframes flowCss {
-            0% {
-                /* 移动背景位置 */
-                background-position: 0 0;
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Aura Music</title>
+        <link
+            rel="icon"
+            type="image/svg+xml"
+            href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImF1cmFHcmFkIiB4MT0iMCIgeTE9IjEiIHgyPSIxIiB5Mj0iMCI+PHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjOGI1Y2Y2Ii8+PHN0b3Agb2Zmc2V0PSIwLjUiIHN0b3AtY29sb3I9IiNlYzQ4OTkiLz48c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmOTczMTYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjEyOCIgZmlsbD0iIzAwMDAwMCIvPjxyZWN0IHg9IjE0NiIgeT0iMTkwIiB3aWR0aD0iNjAiIGhlaWdodD0iMTMyIiByeD0iMzAiIGZpbGw9InVybCgjYXVyYUdyYWQpIi8+PHJlY3QgeD0iMjI2IiB5PSIxMjAiIHdpZHRoPSI2MCIgaGVpZ2h0PSIyNzIiIHJ4PSIzMCIgZmlsbD0idXJsKCNhdXJhR3JhZCkiLz48cmVjdCB4PSIzMDYiIHk9IjIxMCIgd2lkdGg9IjYwIiBoZWlnaHQ9Ijk2IiByeD0iMzAiIGZpbGw9InVybCgjYXVyYUdyYWQpIi8+PC9zdmc+"
+        />
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.2/color-thief.umd.js"></script>
+        <style>
+            body {
+                font-family: "PingFang SC", "Inter", sans-serif;
+                background-color: #000;
+                overflow: hidden; /* Prevent scroll on body, handle in app */
             }
- 
-            100% {
-                background-position: -100% 0;
+
+            /* Custom Scrollbar for Lyrics */
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
             }
-        }
-    </style>
-    <script> 
-      document.addEventListener('DOMContentLoaded', function() {  
-            var audioPlayer = document.getElementById('audioPlayer');  
-            var lyricsContainer = document.getElementById('lyrics');  
-            var lyricsLines = Array.from(lyricsContainer.getElementsByTagName('p'));  
-            var currentLyricIndex = 0;  
-            var currentLyric;  
-            var playButton = document.getElementById('playButton');  
-  
-            function updateLyricDisplay() {  
-                var currentTime = audioPlayer.currentTime;  
-                lyricsLines.forEach(function(lyric, index) {  
-                    var start = parseFloat(lyric.dataset.start);  
-                    var end = parseFloat(lyric.dataset.end);  
-  
-                    if (currentTime >= start && currentTime < end) {  
-                        // 移除之前歌词的活跃状态  
-                        if (currentLyric) {  
-                            currentLyric.classList.remove('active');  
-                        }  
-  
-                        // 设置当前歌词为活跃状态  
-                        lyric.classList.add('active');  
-                        currentLyric = lyric;  
-                        currentLyricIndex = index;  
-  
-                        // 计算歌词容器的滚动位置，确保当前歌词居中  
-                        var lyricTop = lyric.offsetTop;  
-                        var lyricHeight = lyric.offsetHeight;  
-                        var containerHeight = lyricsContainer.clientHeight;  
-                        var newScrollTop = lyricTop - (containerHeight / 2) + (lyricHeight / 2);  
-  
-                        // 确保不会滚动出歌词容器的边界  
-                        newScrollTop = Math.max(0, Math.min(newScrollTop, lyricsContainer.scrollHeight - containerHeight));  
-  
-                        lyricsContainer.scrollTop = newScrollTop;  
-                    } else {  
-                        lyric.classList.remove('active');  
-                    }  
-                });  
-            }  
-  
-            playButton.addEventListener('click', function() {  
-                if (audioPlayer.paused) {  
-                    audioPlayer.play();  
-                    // 开始监听时间更新来同步歌词  
-                    audioPlayer.addEventListener('timeupdate', updateLyricDisplay);  
-                } else {  
-                    audioPlayer.pause();  
-                    // 停止监听时间更新  
-                    audioPlayer.removeEventListener('timeupdate', updateLyricDisplay);  
-                }  
-            });  
-            
-audioPlayer.addEventListener('ended', function() {  
-    // 设置一个定时器，一些好玩的东西+关闭窗口  
-    setTimeout(function() {
-    Toast("3",1000);
-    setTimeout(function() {
-    Toast("2",1000);
-    setTimeout(function() {
-    Toast("1",1000);
-    setTimeout(function() {
-    Toast("见证奇迹的时刻~",1000);
-    setTimeout(function() {
-        window.close();  
-    }, 500);
-    }, 1000);
-    }, 1000);
-    }, 1000);
-    }, 0);
-});
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
 
-  document.getElementById('fullscreenButton').addEventListener('click', function() {  
-    if (!document.fullscreenElement &&  
-        document.documentElement.requestFullscreen) {  
-        document.documentElement.requestFullscreen().catch(function(err) {  
-            alert("无法切换至全屏模式：" + err.message);  
-        });  
-    } else if (document.exitFullscreen) {  
-        document.exitFullscreen();  
-    }  
-});
+            /* Fluid Animation Keyframes */
+            @keyframes blob {
+                0% {
+                    transform: translate(0px, 0px) scale(1);
+                }
+                25% {
+                    transform: translate(15vw, -10vh) scale(1.1);
+                }
+                50% {
+                    transform: translate(-10vw, 15vh) scale(0.9);
+                }
+                75% {
+                    transform: translate(5vw, -5vh) scale(1.05);
+                }
+                100% {
+                    transform: translate(0px, 0px) scale(1);
+                }
+            }
+            @keyframes spin-slow {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            .animate-blob {
+                animation: blob 15s infinite cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .animate-spin-slow {
+                animation: spin-slow 30s linear infinite;
+            }
 
-function Toast(msg,duration){
-  duration=isNaN(duration)?3000:duration;
-  var m = document.createElement('div');
-  m.innerHTML = msg;
-  m.style.cssText="padding:3px 17px;max-width: 550px;min-width: 120px;max-height:200px;min-height:60px;color: rgb(255, 255, 255);text-align: center;border-radius: 5px;position: fixed;top: 50%;left: 50%;transform: translate(-50%, -50%);z-index: 999999999;background-color: rgba(0,0,0,0.7);font-size: 20px;display: flex;justify-content:center;align-items:center;";
-  document.body.appendChild(m);
-  setTimeout(function() {
-    var d = 0.55;
-    m.style.webkitTransition = '-webkit-transform ' + d + 's ease-in, opacity ' + d + 's ease-in';
-    m.style.opacity = '0';
-    setTimeout(function() { document.body.removeChild(m) }, d * 1000);
-  }, duration);
-};
-
-var audiob = document.getElementById("audioPlayer");  
-    var progressBar = document.getElementById("myProgress");  
-  
- audiob.addEventListener("timeupdate", function() {  
-        var value = 0;  
-        if (audiob.currentTime > 0) {  
-            value = Math.floor((100 / audio.duration) * audiob.currentTime);  
-        }  
-        progressBar.style.width = value + "%";  
-    });
-
-            // 初始加载时不自动播放，但准备好歌词显示逻辑  
-            
-            var audio = document.getElementById("wow");  
-    var pb = document.getElementById("sp");  
-    var isPlaying = false; // 用于跟踪音频是否正在播放  
-  
-    // 播放音频并替换背景图片  
-    pb.addEventListener("click", function() {  
-        if (!isPlaying) {  
-            audio.play(); // 播放音频  
-            document.body.style.backgroundImage = 'url("https://creation.codemao.cn/716/appcraft/IMAGE_S1ch1CY_e_1714324054660.png")'; // 替换背景图片  
- 
-            document.getElementById('v').classList.add('hidden');
-            document.getElementById('ct').classList.remove('hidden');
-            
-            isPlaying = true; // 设置音频为正在播放状态  
-            pb.textContent = "Ⅱ"; // 更新按钮文本为暂停  
-        } else {  
-            audio.pause(); // 暂停音频  
-document.body.style.backgroundImage = ''; // 重置背景图片
-        document.getElementById('v').classList.remove('hidden');
-        document.getElementById('ct').classList.add('hidden');
-        
-            isPlaying = false; // 设置音频为未播放状态  
-            pb.textContent = "♪"; // 更新按钮文本为播放  
-        }  
-    });  
-  
-    // 当音频播放结束时，重置背景图片和按钮文本  
-    audio.addEventListener("ended", function() {  
-        document.body.style.backgroundImage = ''; // 重置背景图片
-        document.getElementById('v').classList.remove('hidden');
-        document.getElementById('ct').classList.add('hidden');
-        
-        isPlaying = false; // 重置音频播放状态  
-        pb.textContent = "♪"; // 重置按钮文本为播放  
-    });  
-    
-    document.getElementById('focusButton').addEventListener('click', function() {  
-    document.getElementById('playButton').focus();  
-});
-
-            updateLyricDisplay();
-            document.getElementById('v').classList.remove('hidden');
-            Toast("下午好~",1000); 
-        });  
-    </script>  
-</body>  
+            /* Floating Animation for Lyrics */
+            @keyframes floatWord {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-4px);
+                }
+            }
+            .animate-float {
+                animation: floatWord 3s ease-in-out infinite;
+            }
+            /* Stagger delays are handled in JS or via nth-child if needed,
+         but randomizing start time in JS is better for organic feel */
+        </style>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/index.tsx"></script>
+    </body>
 </html>
