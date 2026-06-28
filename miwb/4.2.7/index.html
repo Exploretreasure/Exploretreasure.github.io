@@ -592,7 +592,7 @@ $('settingChangelog').addEventListener('click',async()=>{
   const dlg=$('dlgChangelog');
   const el=$('changelogContent');
   try{
-    const res=await fetch('changelog.json');
+    const res=await fetch('./changelog.json');
     const data=await res.json();
     el.innerHTML=data.map(v=>`
       <div class="cl-version">
