@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>无限白板</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<script type="importmap" crossorigin="same-origin">
+{"imports":{"@material/web/":"https://esm.run/@material/web/","@material/material-color-utilities":"https://esm.run/@material/material-color-utilities"}}
+</script>
+<script type="module">
+import '@material/web/all.js';
+import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+import {argbFromHex,hexFromArgb,themeFromSourceColor} from '@material/material-color-utilities';
+document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+window._mcu={argbFromHex,hexFromArgb,themeFromSourceColor};
+window.dispatchEvent(new Event('mcu-ready'));
+</script>
+<style>
+/* ===== MD3 Color Tokens ===== */
+:root {
+  --md-sys-color-primary: #6750a4;
+  --md-sys-color-on-primary: #fff;
+  --md-sys-color-primary-container: #eaddff;
+  --md-sys-color-on-primary-container: #21005d;
+  --md-sys-color-surface: #fef7ff;
+  --md-sys-color-on-surface: #1d1b20;
+  --md-sys-color-on-surface-variant: #49454f;
+  --md-sys-color-surface-container: #ece6f0;
+  --md-sys-color-surface-container-high: #e6e0e9;
+  --md-sys-color-surface-container-highest: #e0dae4;
+  --md-sys-color-outline: #79747e;
+  --md-sys-color-outline-variant: #cac4d0;
+  --md-sys-color-inverse-surface: #322f35;
+  --md-sys-color-inverse-on-surface: #f5eff7;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-full: 9999px;
+}
+
+/* ===== Base ===== */
+body { overflow: hidden; font-family: 'Roboto', sans-serif; background: var(--md-sys-color-surface); touch-action: none; user-select: none; margin: 0; }
+canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
+#bgC { z-index: 0; } #drC { z-index: 1; }
+
+/* ===== Material Symbols ===== */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 22px; user-select: none; pointer-events: none;
+}
+
+/* ===== md-icon-button sizing ===== */
+.toolbar md-icon-button {
+  width: 40px; height: 40px;
+  transition: none;
+}
+.toolbar md-icon-button.active {
+  background: var(--md-sys-color-primary-container);
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: none;
+}
+.zoom-bar md-icon-button { --md-icon-button-icon-size: 20px; width: 32px; height: 32px; }
+md-icon { font-family: 'Material Symbols Outlined'; }
+
+/* ===== Toolbar ===== */
+.toolbar {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  width: fit-content; display: flex; align-items: center;
+  background: var(--md-sys-color-surface-container);
+  padding: 4px 6px; border-radius: var(--md-sys-shape-corner-full);
+  box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3);
+  z-index: 100; visibility: hidden; transition: box-shadow .2s ease;
+}
+.toolbar .sep { width: 1px; height: 24px; background: var(--md-sys-color-outline-variant); margin: 0 2px; flex-shrink: 0; opacity: .4; }
+.toolbar.pressed { box-shadow: 0 3px 8px 2px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.22); cursor: grabbing; }
+.toolbar .handle { width: 20px; height: 40px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: grab; touch-action: none; border-radius: var(--md-sys-shape-corner-small); }
+.toolbar .handle .material-symbols-outlined { font-size: 14px; color: var(--md-sys-color-outline); opacity: .5; }
+
+/* ===== Pen color indicator ===== */
+.pen-wrap { position: relative; display: flex; }
+.pen-wrap::after {
+  content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  width: 14px; height: 3px; border-radius: 2px;
+  background: var(--pen-col, #1f1f1f); z-index: 2; transition: background .2s;
+}
+
+/* ===== Menu ===== */
+.menu-overlay { position: fixed; inset: 0; z-index: 199; display: none; pointer-events: none; }
+.menu-overlay.open { display: block; pointer-events: auto; }
+.color-menu {
+  position: fixed; z-index: 200; display: none;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: 0 4px 8px 3px rgba(0,0,0,.15), 0 1px 3px rgba(0,0,0,.3);
+  overflow: hidden; transform-origin: bottom center; padding: 8px 0;
+}
+.color-menu.open { display: block; animation: menu-in .2s cubic-bezier(.2,0,0,1); }
+.color-menu.closing { display: block; animation: menu-out .15s cubic-bezier(.4,0,1,1) forwards; }
+@keyframes menu-in { from { opacity: 0; transform: scale(.92) translateY(8px); } to { opacity: 1; } }
+@keyframes menu-out { from { opacity: 1; } to { opacity: 0; transform: scale(.92) translateY(8px); } }
+.menu-title { font-size: 11px; font-weight: 500; letter-spacing: .5px; color: var(--md-sys-color-on-surface-variant); padding: 12px 16px 6px; text-transform: uppercase; }
+.color-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; padding: 6px 16px 10px; }
+.color-dot { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid transparent; cursor: pointer; transition: transform .15s, border-color .15s, box-shadow .15s; justify-self: center; }
+.color-dot:hover { transform: scale(1.2); box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.color-dot:active { transform: scale(.9); }
+.color-dot.active { border-color: var(--md-sys-color-primary); transform: scale(1.1); box-shadow: 0 0 0 3px var(--md-sys-color-primary-container); }
+.color-dot.white { box-shadow: inset 0 0 0 1.5px var(--md-sys-color-outline-variant); }
+.custom-row { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.custom-row input[type="color"] { width: 28px; height: 28px; border: none; border-radius: 50%; cursor: pointer; padding: 0; background: none; -webkit-appearance: none; }
+.custom-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.custom-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+.custom-row label { font-size: 13px; color: var(--md-sys-color-on-surface-variant); }
+.custom-row .hex { font-size: 11px; color: var(--md-sys-color-outline); font-family: 'Roboto Mono', monospace; margin-left: auto; }
+.size-row { display: flex; align-items: center; gap: 12px; padding: 8px 16px 14px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.size-row md-slider { flex: 1; }
+.size-preview { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.size-dot { border-radius: 50%; background: var(--md-sys-color-on-surface); transition: width .1s, height .1s; }
+.size-val { font-size: 14px; min-width: 28px; text-align: center; font-weight: 500; color: var(--md-sys-color-on-surface); }
+
+/* ===== Zoom bar ===== */
+.zoom-bar { position: fixed; bottom: 16px; right: 16px; display: flex; align-items: center; background: var(--md-sys-color-surface-container); padding: 2px 6px; border-radius: var(--md-sys-shape-corner-full); box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3); z-index: 100; visibility: hidden; }
+.zoom-label { font-size: 12px; color: var(--md-sys-color-on-surface-variant); min-width: 48px; text-align: center; cursor: pointer; font-weight: 500; padding: 4px 0; border-radius: var(--md-sys-shape-corner-small); }
+.zoom-label:hover { background: rgba(0,0,0,.06); }
+[data-theme="dark"] .zoom-label:hover { background: rgba(255,255,255,.06); }
+
+/* ===== Coordinates ===== */
+.coords { position: fixed; bottom: 16px; left: 16px; font-size: 11px; color: var(--md-sys-color-on-surface-variant); z-index: 100; font-variant-numeric: tabular-nums; background: var(--md-sys-color-surface-container); padding: 4px 12px; border-radius: var(--md-sys-shape-corner-full); font-family: 'Roboto Mono', monospace; visibility: hidden; box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3); }
+
+/* ===== Toast ===== */
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--md-sys-color-inverse-surface); color: var(--md-sys-color-inverse-on-surface); padding: 12px 24px; border-radius: var(--md-sys-shape-corner-small); font-size: 14px; z-index: 999; opacity: 0; transition: all .25s cubic-bezier(.2,0,0,1); pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== Hint ===== */
+.hint { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container); padding: 6px 20px; border-radius: var(--md-sys-shape-corner-full); box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3); z-index: 100; pointer-events: none; transition: opacity 1s; display: flex; align-items: center; gap: 8px; }
+.hint .material-symbols-outlined { font-size: 16px; }
+
+/* ===== Eraser cursor ===== */
+.eraser-cursor { position: fixed; border-radius: 50%; border: 2px solid var(--md-sys-color-primary); pointer-events: none; z-index: 50; display: none; transform: translate(-50%,-50%); background: rgba(11,87,208,.08); }
+[data-theme="dark"] .eraser-cursor { background: rgba(168,199,250,.1); }
+#fi { display: none; }
+
+/* ===== Settings ===== */
+.settings-overlay { position: fixed; inset: 0; z-index: 299; display: none; }
+.settings-overlay.open { display: block; }
+.settings-panel {
+  position: fixed; z-index: 300;
+  display: none; min-width: 280px;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: 0 4px 8px 3px rgba(0,0,0,.15), 0 1px 3px rgba(0,0,0,.3);
+  overflow: hidden; animation: panel-in .2s cubic-bezier(.2,0,0,1);
+}
+.settings-panel.open { display: block; }
+@keyframes panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.settings-title { font-size: 14px; font-weight: 500; color: var(--md-sys-color-on-surface); padding: 16px 16px 8px; }
+.settings-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; transition: background .15s; position: relative; overflow: hidden; }
+.settings-item:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.settings-item-label { font-size: 14px; color: var(--md-sys-color-on-surface); }
+.settings-item-desc { font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 2px; }
+.color-indicator { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--md-sys-color-outline-variant); cursor: pointer; transition: transform .15s; }
+.color-indicator:hover { transform: scale(1.15); }
+
+#themeColorInput { position: fixed; width: 0; height: 0; padding: 0; border: none; opacity: 0; }
+
+/* ===== Changelog ===== */
+.cl-version + .cl-version { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.cl-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cl-tag { font-size: 13px; font-weight: 500; color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); padding: 2px 10px; border-radius: var(--md-sys-shape-corner-full); }
+.cl-date { font-size: 12px; color: var(--md-sys-color-on-surface-variant); }
+.cl-list { margin: 0; padding-left: 20px; }
+.cl-list li { font-size: 13px; color: var(--md-sys-color-on-surface); line-height: 1.8; }
+#dlgChangelog [slot="content"] { max-height: 50vh; overflow-y: auto; min-width: 280px; }
+
+</style>
+</head>
+<body data-theme="light">
+
+<canvas id="bgC"></canvas>
+<canvas id="drC"></canvas>
+<div class="eraser-cursor" id="ec"></div>
+
+<!-- ===== Toolbar ===== -->
+<div class="toolbar" id="tb">
+  <div class="handle" id="handleL"><span class="material-symbols-outlined">drag_indicator</span></div>
+  <div class="pen-wrap" id="penWrap"><md-icon-button id="btnPen" title="画笔"><md-icon>edit</md-icon></md-icon-button></div>
+  <md-icon-button id="btnEraser" title="橡皮"><md-icon>ink_eraser</md-icon></md-icon-button>
+  <md-icon-button id="btnPan" title="漫游"><md-icon>pan_tool</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnUndo" title="撤销"><md-icon>undo</md-icon></md-icon-button>
+  <md-icon-button id="btnRedo" title="重做"><md-icon>redo</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnDark" title="深浅模式"><md-icon id="darkIcon">dark_mode</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnSave" title="保存"><md-icon>save</md-icon></md-icon-button>
+  <md-icon-button id="btnOpen" title="打开"><md-icon>folder_open</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnClear" title="清空"><md-icon>delete</md-icon></md-icon-button>
+  <md-icon-button id="btnSettings" title="设置"><md-icon>settings</md-icon></md-icon-button>
+  <div class="handle" id="handleR"><span class="material-symbols-outlined">drag_indicator</span></div>
+</div>
+
+<!-- ===== Color Menu ===== -->
+<div class="menu-overlay" id="menuOverlay"></div>
+<div class="color-menu" id="menu">
+  <div class="menu-title">调色板</div>
+  <div class="color-grid" id="cg"></div>
+  <div class="custom-row">
+    <input type="color" id="cp" value="#1f1f1f">
+    <label>自定义颜色</label>
+    <span class="hex" id="ch">#1f1f1f</span>
+  </div>
+  <div class="menu-title">画笔粗细</div>
+  <div class="size-row">
+    <div class="size-preview"><div class="size-dot" id="sd"></div></div>
+    <md-slider id="sl" min="1" max="60" value="3" labeled></md-slider>
+    <span class="size-val" id="sn">3</span>
+  </div>
+</div>
+
+<!-- ===== Zoom ===== -->
+<div class="zoom-bar">
+  <md-icon-button id="zO" title="缩小"><md-icon>remove</md-icon></md-icon-button>
+  <span class="zoom-label" id="zl">100%</span>
+  <md-icon-button id="zI" title="放大"><md-icon>add</md-icon></md-icon-button>
+</div>
+
+<div class="coords" id="cd">0, 0</div>
+
+<!-- ===== Settings ===== -->
+<div class="settings-overlay" id="settingsOverlay"></div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-title">设置</div>
+  <div class="settings-item" id="settingColor">
+    <div>
+      <div class="settings-item-label">主题颜色</div>
+      <div class="settings-item-desc">更改界面主色调</div>
+    </div>
+    <div class="color-indicator" id="themeColorCircle"></div>
+  </div>
+  <div class="settings-item">
+    <div class="settings-item-label">跟随系统深浅色</div>
+    <md-switch id="darkToggle"></md-switch>
+  </div>
+  <div class="settings-item" id="settingChangelog">
+    <div>
+      <div class="settings-item-label">版本更新记录</div>
+      <div class="settings-item-desc">查看历史版本变更</div>
+    </div>
+    <span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-on-surface-variant)">history</span>
+  </div>
+</div>
+<input type="color" id="themeColorInput">
+
+<div class="hint" id="hb"><span class="material-symbols-outlined">info</span> 滚轮缩放 · 空格+拖拽漫游 · 三指擦除</div>
+<div class="toast" id="toast"></div>
+
+<md-dialog id="dlgChangelog">
+  <div slot="headline">版本更新记录</div>
+  <div slot="content" id="changelogContent"></div>
+  <div slot="actions">
+    <md-filled-button id="changelogClose">关闭</md-filled-button>
+  </div>
+</md-dialog>
+
+<md-dialog id="dlg" type="alert">
+  <div slot="headline">清空画布</div>
+  <div slot="content">所有笔画将被清除，此操作无法撤销。</div>
+  <div slot="actions">
+    <md-text-button id="dlgCancel">取消</md-text-button>
+    <md-filled-button id="dlgOk">清空</md-filled-button>
+  </div>
+</md-dialog>
+
+<input type="file" id="fi" accept=".wbjson,.json">
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ===== DOM ===== */
+const bgC = $('bgC'), drC = $('drC');
+const bgX = bgC.getContext('2d'), drX = drC.getContext('2d');
+const tb = $('tb'), ec = $('ec'), menu = $('menu'), penWrap = $('penWrap');
+
+/* ===== State ===== */
+let tool = 'pen', col = '#1f1f1f', lw = 3;
+const ERASER_R = 3; // fixed eraser radius in world coords
+let bg = '#f0f0f0', bgm = 'light', sc = 1, ox = 0, oy = 0;
+let hist = [], redoStk = [], cur = null;
+let drawing = false, panning = false, spaceH = false, erasing = false;
+let mx0 = 0, my0 = 0, eraserX = 0, eraserY = 0;
+const CURSORS = { pen: 'crosshair', eraser: 'none', pan: 'grab' };
+function updateCursor() { drC.style.cursor = panning ? 'grabbing' : (CURSORS[tool] || 'crosshair'); }
+function s2w(sx, sy) { return { x: (sx - ox) / sc, y: (sy - oy) / sc }; }
+
+/* ===== Resize ===== */
+function resize() { bgC.width = innerWidth; bgC.height = innerHeight; drC.width = innerWidth; drC.height = innerHeight; drawBg(); drawAll(); }
+addEventListener('resize', resize);
+
+/* ===== Background ===== */
+function drawBg() {
+  const c = bgX; c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,bgC.width,bgC.height);
+  c.fillStyle = bg; c.fillRect(0,0,bgC.width,bgC.height);
+  const g=40; c.strokeStyle = bgm==='dark'?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'; c.lineWidth=.5;
+  const sx=ox%(g*sc),sy=oy%(g*sc),st=g*sc;
+  c.beginPath();
+  for(let x=sx;x<bgC.width;x+=st){c.moveTo(x,0);c.lineTo(x,bgC.height)}
+  for(let y=sy;y<bgC.height;y+=st){c.moveTo(0,y);c.lineTo(bgC.width,y)}
+  c.stroke();
+}
+
+/* ===== Draw ===== */
+function drawAll(){const c=drX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,drC.width,drC.height);c.setTransform(sc,0,0,sc,ox,oy);for(const s of hist)drawS(c,s);if(cur)drawS(c,cur)}
+function drawS(c,s){if(!s.pts||!s.pts.length)return;c.save();c.lineCap='round';c.lineJoin='round';c.lineWidth=s.lw;if(s.era){c.globalCompositeOperation='destination-out';c.strokeStyle='rgba(0,0,0,1)';c.fillStyle='rgba(0,0,0,1)'}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.col;c.fillStyle=s.col}const p=s.pts;if(p.length===1){c.beginPath();c.arc(p[0].x,p[0].y,s.lw/2,0,Math.PI*2);c.fill()}else{c.beginPath();c.moveTo(p[0].x,p[0].y);for(let i=1;i<p.length-1;i++)c.quadraticCurveTo(p[i].x,p[i].y,(p[i].x+p[i+1].x)/2,(p[i].y+p[i+1].y)/2);c.lineTo(p[p.length-1].x,p[p.length-1].y);c.stroke()}c.restore()}
+
+/* ===== Erase ===== */
+function eraseAt(wx,wy){const r=Math.max(ERASER_R*2,16),r2=r*r;let ch=false;for(let i=hist.length-1;i>=0;i--){if(hist[i].era)continue;for(const p of hist[i].pts){if((p.x-wx)**2+(p.y-wy)**2<r2){hist.splice(i,1);ch=true;break}}}if(ch){redoStk.length=0;drawAll()}}
+function eraseAlong(fx,fy,tx,ty){const dx=tx-fx,dy=ty-fy,dist=Math.hypot(dx,dy),step=Math.max(Math.max(ERASER_R*2,16)/2,4),steps=Math.max(1,Math.ceil(dist/step));for(let i=0;i<=steps;i++){const t=i/steps;eraseAt(fx+dx*t,fy+dy*t)}}
+function eraseAtRadius(pts,r){const rW=r/sc,r2=rW*rW;let ch=false;for(let i=hist.length-1;i>=0;i--){if(hist[i].era)continue;for(const sp of hist[i].pts){for(const ep of pts){if((sp.x-ep.x)**2+(sp.y-ep.y)**2<r2){hist.splice(i,1);ch=true;break}}if(ch)break}if(ch){redoStk.length=0;drawAll();ch=false}}}
+
+/* ===== Menu ===== */
+const menuOverlay=$('menuOverlay');
+function openMenu(){
+  menu.classList.add('open');
+  menuOverlay.classList.add('open');
+  const r=penWrap.getBoundingClientRect();
+  const mw=menu.offsetWidth, mh=menu.offsetHeight;
+  let left=r.left+r.width/2-mw/2;
+  let top=r.top-mh-12;
+  if(top<8) top=r.bottom+12;
+  if(top+mh>innerHeight-8) top=innerHeight-mh-8;
+  left=Math.max(8,Math.min(left,innerWidth-mw-8));
+  menu.style.left=left+'px';
+  menu.style.top=top+'px';
+}
+function closeMenu(){menu.classList.remove('open');menu.classList.add('closing');menuOverlay.classList.remove('open');menu.addEventListener('animationend',()=>menu.classList.remove('closing'),{once:true})}
+function menuIsOpen(){return menu.classList.contains('open')}
+/* close menu when clicking/tapping outside */
+function closeMenuAndForward(e){
+  if(!menuIsOpen()) return;
+  if(e.target.closest('.color-menu')||e.target.closest('.toolbar')) return;
+  closeMenu();
+  const sx=e.clientX, sy=e.clientY;
+  const isMouse=e.pointerType==='mouse';
+  menuOverlay.style.pointerEvents='none';
+  if(isMouse){
+    drC.dispatchEvent(new MouseEvent('mousedown',{clientX:sx,clientY:sy,button:0,bubbles:true}));
+  }else{
+    if(tool==='pan'||spaceH){tState='pan';panning=true;mx0=sx;my0=sy;updateCursor()}
+    else if(tool==='eraser'){tState='erase';erasing=true;const w=s2w(sx,sy);eraserX=w.x;eraserY=w.y;eraseAt(w.x,w.y)}
+    else{tState='draw';drawing=true;const w=s2w(sx,sy);cur={col,lw,pts:[{x:w.x,y:w.y}],era:false}}
+  }
+}
+document.addEventListener('pointerdown',closeMenuAndForward,true);
+/* touch sequence stays on overlay — forward move/end to canvas */
+menuOverlay.addEventListener('touchstart',()=>{ menuOverlay.style.pointerEvents='none'; }, {passive:true});
+menuOverlay.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches;
+  if(tState==='draw'&&t.length===1&&drawing&&cur){const w=s2w(t[0].clientX,t[0].clientY);cur.pts.push({x:w.x,y:w.y});drawAll()}
+  if(tState==='erase'&&t.length===1&&erasing){const w=s2w(t[0].clientX,t[0].clientY);eraseAlong(eraserX,eraserY,w.x,w.y);eraserX=w.x;eraserY=w.y}
+  if(tState==='pan'&&t.length===1&&panning){ox+=t[0].clientX-mx0;oy+=t[0].clientY-my0;mx0=t[0].clientX;my0=t[0].clientY;drawBg();drawAll()}
+}, {passive:false});
+menuOverlay.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(e.touches.length===0){
+    if(drawing&&cur){drawing=false;if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawAll()}
+    erasing=false;panning=false;tState='none';hideEC();
+    setTimeout(()=>{ menuOverlay.style.pointerEvents=''; }, 200);
+  }
+}, {passive:false});
+
+/* ===== Eraser cursor ===== */
+function showEC(sx,sy,r){ec.style.display='block';ec.style.left=sx+'px';ec.style.top=sy+'px';ec.style.width=r*2+'px';ec.style.height=r*2+'px'}
+function hideEC(){ec.style.display='none'}
+
+/* ===== Tool switching ===== */
+function setTool(t){
+  tool=t;
+  const isDark=document.body.dataset.theme==='dark';
+  ['btnPen','btnEraser','btnPan'].forEach(id=>{
+    const map={btnPen:'pen',btnEraser:'eraser',btnPan:'pan'};
+    const el=$(id);
+    const isActive=map[id]===t;
+    el.classList.toggle('active',isActive);
+    if(isActive){
+      el.style.background=isDark?'var(--md-sys-color-on-primary-container)':'var(--md-sys-color-primary-container)';
+      const icon=el.querySelector('md-icon');
+      if(icon) icon.style.color=isDark?'var(--md-sys-color-primary-container)':'var(--md-sys-color-on-primary-container)';
+    }else{
+      el.style.background='';
+      const icon=el.querySelector('md-icon');
+      if(icon) icon.style.color='';
+    }
+  });
+  if(t!=='eraser')hideEC();updateCursor();
+}
+
+/* ===== Toolbar events ===== */
+$('btnPen').addEventListener('click',()=>{if(tool==='pen'){menuIsOpen()?closeMenu():openMenu()}else{if(menuIsOpen())closeMenu();setTool('pen')}});
+$('btnEraser').addEventListener('click',()=>{if(menuIsOpen())closeMenu();setTool('eraser')});
+$('btnPan').addEventListener('click',()=>{if(menuIsOpen())closeMenu();setTool('pan')});
+$('btnUndo').addEventListener('click',()=>{if(hist.length){redoStk.push(hist.pop());drawAll()}});
+$('btnRedo').addEventListener('click',()=>{if(redoStk.length){hist.push(redoStk.pop());drawAll()}});
+$('btnDark').addEventListener('click',toggleDark);
+$('btnSave').addEventListener('click',doSave);
+$('btnOpen').addEventListener('click',doOpen);
+$('btnClear').addEventListener('click',()=>{if(hist.length)$('dlg').show()});
+
+/* ===== Colors ===== */
+const cols=['#000000','#1f1f1f','#5f6368','#9aa0a6','#c4c7c5','#f0f0f0','#ffffff','#c5221f','#e74c3c','#ff6b6b','#ff8a80','#f48fb1','#d81b60','#e91e63','#0b57d0','#1b72e8','#3498db','#64b5f6','#80deea','#00838f','#00bcd4','#0d652d','#2ecc71','#81c784','#a5d6a7','#c8e6c9','#4caf50','#66bb6a','#e37400','#f39c12','#ffb74d','#ffcc02','#ffd54f','#ffe082','#ff9800','#7b1fa2','#9b59b6','#ce93d8','#e1bee7','#ba68c8','#ab47bc','#7c4dff','#795548','#8d6e63','#bcaaa4','#a1887f','#6d4c41','#5d4037','#4e342e'];
+const cg=$('cg');
+cols.forEach(c=>{const d=document.createElement('div');d.className='color-dot'+(c===col?' active':'')+(c==='#ffffff'||c==='#f0f0f0'?' white':'');d.style.background=c;d.addEventListener('click',()=>{col=c;updColUI()});cg.appendChild(d)});
+$('cp').addEventListener('input',e=>{col=e.target.value;updColUI()});
+function updColUI(){penWrap.style.setProperty('--pen-col',col);$('ch').textContent=col;$('cp').value=col;cg.querySelectorAll('.color-dot').forEach(c=>c.classList.toggle('active',nC(c.style.background)===col.toLowerCase()))}
+function nC(c){if(c.startsWith('#'))return c.toLowerCase();const m=c.match(/\d+/g);return m&&m.length>=3?'#'+m.slice(0,3).map(x=>(+x).toString(16).padStart(2,'0')).join(''):c}
+
+/* ===== Slider ===== */
+const sl=$('sl'),sn=$('sn'),sd=$('sd');
+function updSz(){sn.textContent=lw;const d=Math.round(3+(lw-1)*30/59);sd.style.width=d+'px';sd.style.height=d+'px'}
+sl.addEventListener('input',()=>{lw=+sl.value;updSz()});
+updSz();
+updColUI();
+
+/* ===== Save/Open ===== */
+function doSave(){const d={v:1,bg,bgm,s:sc,ox,oy,strokes:hist};const blob=new Blob([JSON.stringify(d)],{type:'application/json'});const a=document.createElement('a');const n=new Date();a.download=`wb_${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}_${String(n.getHours()).padStart(2,'0')}${String(n.getMinutes()).padStart(2,'0')}.wbjson`;a.href=URL.createObjectURL(blob);a.click();URL.revokeObjectURL(a.href);toast('已保存')}
+function doOpen(){$('fi').click()}
+$('fi').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);hist=d.strokes||[];bg=d.bg||'#f0f0f0';bgm=d.bgm||'light';sc=d.s||1;ox=d.ox||0;oy=d.oy||0;document.body.dataset.theme=bgm;redoStk=[];$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll();toast('已加载')}catch{toast('格式错误')}};r.readAsText(f);e.target.value=''});
+
+/* ===== Dialog ===== */
+const dlg=$('dlg');
+$('dlgOk').addEventListener('click',()=>dlg.close('ok'));
+$('dlgCancel').addEventListener('click',()=>dlg.close());
+dlg.addEventListener('close',()=>{if(dlg.returnValue==='ok'){hist=[];redoStk=[];cur=null;drawAll();toast('已清空')}});
+
+/* ===== Toast ===== */
+function toast(m){const s=$('toast');s.textContent=m;s.classList.add('show');clearTimeout(s._t);s._t=setTimeout(()=>s.classList.remove('show'),2500)}
+
+/* ===== Zoom ===== */
+$('zI').addEventListener('click',()=>{const ns=Math.min(100,sc*1.25);ox=drC.width/2-(drC.width/2-ox)*(ns/sc);oy=drC.height/2-(drC.height/2-oy)*(ns/sc);sc=ns;$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll()});
+$('zO').addEventListener('click',()=>{const ns=Math.max(.05,sc/1.25);ox=drC.width/2-(drC.width/2-ox)*(ns/sc);oy=drC.height/2-(drC.height/2-oy)*(ns/sc);sc=ns;$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll()});
+$('zl').addEventListener('click',()=>{sc=1;ox=0;oy=0;$('zl').textContent='100%';drawBg();drawAll()});
+
+/* ===== Keyboard ===== */
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&!spaceH&&!e.repeat){spaceH=true;e.preventDefault()}if(!e.ctrlKey&&!e.metaKey){if(e.key==='b'||e.key==='B')setTool('pen');if(e.key==='e'||e.key==='E')setTool('eraser');if(e.key==='h'||e.key==='H')setTool('pan')}if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();if(hist.length){redoStk.push(hist.pop());drawAll()}}if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){e.preventDefault();if(redoStk.length){hist.push(redoStk.pop());drawAll()}}if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();doSave()}if((e.ctrlKey||e.metaKey)&&e.key==='o'){e.preventDefault();doOpen()}if(e.key==='Escape')closeMenu()});
+document.addEventListener('keyup',e=>{if(e.code==='Space')spaceH=false});
+
+/* ===== Canvas mouse ===== */
+drC.addEventListener('mousedown',e=>{if(e.button===1||(e.button===0&&(tool==='pan'||spaceH))){panning=true;mx0=e.clientX;my0=e.clientY;updateCursor();startDoc();return}if(e.button!==0)return;if(tool==='eraser'){erasing=true;const w=s2w(e.clientX,e.clientY);eraserX=w.x;eraserY=w.y;eraseAt(w.x,w.y);startDoc();return}drawing=true;const w=s2w(e.clientX,e.clientY);cur={col,lw,pts:[{x:w.x,y:w.y}],era:false};startDoc()});
+function onDocMove(e){const w=s2w(e.clientX,e.clientY);$('cd').textContent=`${Math.round(w.x)}, ${Math.round(w.y)}`;if(tool==='eraser')showEC(e.clientX,e.clientY,Math.max(ERASER_R*2,10));else hideEC();if(panning){ox+=e.clientX-mx0;oy+=e.clientY-my0;mx0=e.clientX;my0=e.clientY;drawBg();drawAll();return}if(erasing){eraseAlong(eraserX,eraserY,w.x,w.y);eraserX=w.x;eraserY=w.y;return}if(drawing&&cur){cur.pts.push({x:w.x,y:w.y});drawAll()}}
+function onDocUp(){if(panning){panning=false;updateCursor()}else if(erasing){erasing=false}else if(drawing&&cur){drawing=false;if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawAll()}stopDoc()}
+function startDoc(){document.addEventListener('mousemove',onDocMove);document.addEventListener('mouseup',onDocUp)}
+function stopDoc(){document.removeEventListener('mousemove',onDocMove);document.removeEventListener('mouseup',onDocUp)}
+drC.addEventListener('mousemove',e=>{if(drawing||erasing||panning)return;const w=s2w(e.clientX,e.clientY);$('cd').textContent=`${Math.round(w.x)}, ${Math.round(w.y)}`;if(tool==='eraser')showEC(e.clientX,e.clientY,Math.max(ERASER_R*2,10));else hideEC()});
+drC.addEventListener('mouseleave',()=>{if(!drawing&&!erasing&&!panning)hideEC()});
+
+/* ===== Canvas touch ===== */
+let tState='none',pDist=0,t3prev=null;
+drC.addEventListener('touchstart',e=>{e.preventDefault();const t=e.touches;if(t.length>=3){if(drawing&&cur){if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawing=false}tState='3e';const c=t3c(t),r=t3r(t,c);showEC(c.sx,c.sy,r);eraseAtRadius([c],r);t3prev=c;return}if(t.length===2){if(drawing&&cur){if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawing=false}tState='pan';mx0=(t[0].clientX+t[1].clientX)/2;my0=(t[0].clientY+t[1].clientY)/2;pDist=Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);return}if(t.length===1){const tt=t[0];if(tool==='pan'||spaceH){tState='pan';panning=true;mx0=tt.clientX;my0=tt.clientY}else if(tool==='eraser'){tState='erase';erasing=true;const w=s2w(tt.clientX,tt.clientY);eraserX=w.x;eraserY=w.y;eraseAt(w.x,w.y)}else{tState='draw';drawing=true;const w=s2w(tt.clientX,tt.clientY);cur={col,lw,pts:[{x:w.x,y:w.y}],era:false}}}}, {passive:false});
+drC.addEventListener('touchmove',e=>{e.preventDefault();const t=e.touches;if(tState==='3e'){if(t.length>=3){const c=t3c(t),r=t3r(t,c);showEC(c.sx,c.sy,r);const pts=[c];if(t3prev){for(let f=.33;f<1;f+=.33)pts.push({x:t3prev.x+(c.x-t3prev.x)*f,y:t3prev.y+(c.y-t3prev.y)*f})}eraseAtRadius(pts,r);t3prev=c}else{tState='none';hideEC()}return}if(tState==='pan'&&t.length===2){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;const dist=Math.hypot(dx,dy),cx=(t[0].clientX+t[1].clientX)/2,cy=(t[0].clientY+t[1].clientY)/2;if(pDist>0){const ns=Math.max(.05,Math.min(100,sc*(dist/pDist)));ox=cx-(cx-ox)*(ns/sc);oy=cy-(cy-oy)*(ns/sc);sc=ns;ox+=cx-mx0;oy+=cy-my0;$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll()}pDist=dist;mx0=cx;my0=cy;return}if(tState==='pan'&&t.length===1&&panning){const tt=t[0];ox+=tt.clientX-mx0;oy+=tt.clientY-my0;mx0=tt.clientX;my0=tt.clientY;drawBg();drawAll();return}if(tState==='erase'&&t.length===1&&erasing){const w=s2w(t[0].clientX,t[0].clientY);eraseAlong(eraserX,eraserY,w.x,w.y);eraserX=w.x;eraserY=w.y}if(tState==='draw'&&t.length===1&&drawing&&cur){const w=s2w(t[0].clientX,t[0].clientY);cur.pts.push({x:w.x,y:w.y});drawAll()}}, {passive:false});
+drC.addEventListener('touchend',e=>{e.preventDefault();if(e.touches.length===0){if(drawing&&cur){drawing=false;if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawAll()}erasing=false;panning=false;tState='none';t3prev=null;hideEC()}else if(e.touches.length<3&&tState==='3e'){tState='none';t3prev=null;hideEC()}}, {passive:false});
+function t3c(ts){let cx=0,cy=0;for(let i=0;i<3;i++){cx+=ts[i].clientX;cy+=ts[i].clientY}cx/=3;cy/=3;const w=s2w(cx,cy);return{sx:cx,sy:cy,x:w.x,y:w.y}}
+function t3r(ts,c){let mx=0;for(let i=0;i<3;i++){const d=Math.hypot(ts[i].clientX-c.sx,ts[i].clientY-c.sy);if(d>mx)mx=d}return Math.max(mx+25,40)}
+
+/* ===== Toolbar drag ===== */
+(function(){const handles=tb.querySelectorAll('.handle');let drag=null;handles.forEach(h=>{h.addEventListener('pointerdown',e=>{const r=tb.getBoundingClientRect();drag={sx:e.clientX,sy:e.clientY,ol:r.left,ot:r.top,moved:false};h.setPointerCapture(e.pointerId);tb.classList.add('pressed');e.preventDefault()});h.addEventListener('pointermove',e=>{if(!drag)return;if(!drag.moved){drag.moved=true;tb.style.left=drag.ol+'px';tb.style.top=drag.ot+'px';tb.style.bottom='auto';tb.style.transform='none'}let nl=drag.ol+(e.clientX-drag.sx),nt=drag.ot+(e.clientY-drag.sy);nl=Math.max(0,Math.min(innerWidth-tb.offsetWidth,nl));nt=Math.max(0,Math.min(innerHeight-tb.offsetHeight,nt));tb.style.left=nl+'px';tb.style.top=nt+'px'});h.addEventListener('pointerup',()=>{tb.classList.remove('pressed');drag=null});h.addEventListener('pointercancel',()=>{tb.classList.remove('pressed');drag=null})})})();
+
+/* ===== Wheel zoom ===== */
+drC.addEventListener('wheel',e=>{e.preventDefault();const factor=e.deltaY<0?1.1:1/1.1;const ns=Math.max(.05,Math.min(100,sc*factor));ox=e.clientX-(e.clientX-ox)*(ns/sc);oy=e.clientY-(e.clientY-oy)*(ns/sc);sc=ns;$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll()},{passive:false});
+
+/* ===== Settings ===== */
+const settingsPanel=$('settingsPanel'),settingsOverlay=$('settingsOverlay');
+const themeColorInput=$('themeColorInput'),themeColorCircle=$('themeColorCircle');
+const darkToggle=$('darkToggle');
+
+let themeColor='#6750A4',isDark=window.matchMedia('(prefers-color-scheme:dark)').matches,followSystem=true;
+
+
+function applyThemeColor(hex){
+  themeColor=hex;
+  themeColorCircle.style.background=hex;
+  themeColorInput.value=hex;
+  const root=document.documentElement;
+  const set=(k,v)=>root.style.setProperty(k,v);
+  const mcu=window._mcu;
+  if(!mcu)return;
+  const theme=mcu.themeFromSourceColor(mcu.argbFromHex(hex));
+  const s=isDark?theme.schemes.dark:theme.schemes.light;
+  const toJSON=o=>(typeof o.toJSON==='function'?o.toJSON():o);
+  const sc=toJSON(s);
+  const hexC=v=>mcu.hexFromArgb(v);
+  /* surfaceContainer* may be #000000 in older lib — derive from neutral palette */
+  const neut=theme.palettes.neutral;
+  const nTone=t=>hexC(neut.tone(t));
+  const surfLowest=isDark?nTone(6):nTone(88);
+  const surfLow=isDark?nTone(10):nTone(90);
+  const surfCont=isDark?nTone(12):nTone(92);
+  const surfHigh=isDark?nTone(17):nTone(94);
+  const surfHighest=isDark?nTone(22):nTone(96);
+  set('--md-sys-color-primary',hexC(sc.primary));
+  set('--md-sys-color-on-primary',hexC(sc.onPrimary));
+  set('--md-sys-color-primary-container',hexC(sc.primaryContainer));
+  set('--md-sys-color-on-primary-container',hexC(sc.onPrimaryContainer));
+  set('--md-sys-color-secondary',hexC(sc.secondary));
+  set('--md-sys-color-on-secondary',hexC(sc.onSecondary));
+  set('--md-sys-color-secondary-container',hexC(sc.secondaryContainer));
+  set('--md-sys-color-on-secondary-container',hexC(sc.onSecondaryContainer));
+  set('--md-sys-color-tertiary',hexC(sc.tertiary));
+  set('--md-sys-color-on-tertiary',hexC(sc.onTertiary));
+  set('--md-sys-color-tertiary-container',hexC(sc.tertiaryContainer));
+  set('--md-sys-color-on-tertiary-container',hexC(sc.onTertiaryContainer));
+  set('--md-sys-color-error',hexC(sc.error));
+  set('--md-sys-color-on-error',hexC(sc.onError));
+  set('--md-sys-color-error-container',hexC(sc.errorContainer));
+  set('--md-sys-color-on-error-container',hexC(sc.onErrorContainer));
+  set('--md-sys-color-surface',hexC(sc.surface));
+  set('--md-sys-color-on-surface',hexC(sc.onSurface));
+  set('--md-sys-color-on-surface-variant',hexC(sc.onSurfaceVariant));
+  set('--md-sys-color-surface-container',surfCont);
+  set('--md-sys-color-surface-container-low',surfLow);
+  set('--md-sys-color-surface-container-high',surfHigh);
+  set('--md-sys-color-surface-container-highest',surfHighest);
+  set('--md-sys-color-surface-container-lowest',surfLowest);
+  set('--md-sys-color-outline',hexC(sc.outline));
+  set('--md-sys-color-outline-variant',hexC(sc.outlineVariant));
+  set('--md-sys-color-inverse-surface',hexC(sc.inverseSurface));
+  set('--md-sys-color-inverse-on-surface',hexC(sc.inverseOnSurface));
+  set('--md-sys-color-inverse-primary',hexC(sc.inversePrimary));
+  /* clear inline overrides so CSS vars take effect */
+  document.querySelectorAll('.toolbar,.zoom-bar,.coords,.settings-panel,.color-menu').forEach(el=>el.style.background='');
+  bg=hexC(sc.surface);
+  if(col==='#0b57d0'||col==='#a8c7fa'||col==='#6750a4'){col=hex;updColUI()}
+}
+
+function syncDarkUI(){
+  darkToggle.selected = followSystem;
+}
+
+function applyDarkMode(){
+  document.body.dataset.theme=isDark?'dark':'light';
+  bgm=isDark?'dark':'light';
+  $('darkIcon').textContent=isDark?'light_mode':'dark_mode';
+  $('btnDark').title=isDark?'切换浅色':'切换深色';
+  syncDarkUI();
+  applyThemeColor(themeColor);
+  setTool(tool);
+  drawBg();drawAll();
+}
+
+function toggleDark(){
+  isDark=!isDark;
+  followSystem=false;
+  applyDarkMode();
+}
+
+function positionSettings(){
+  const r=tb.getBoundingClientRect();
+  settingsPanel.style.bottom=(innerHeight-r.top+12)+'px';
+  settingsPanel.style.right=Math.max(16,innerWidth-r.right)+'px';
+}
+
+function toggleSettings(){
+  const isOpen=settingsPanel.classList.contains('open');
+  if(isOpen){settingsPanel.classList.remove('open');settingsOverlay.classList.remove('open')}
+  else{positionSettings();settingsPanel.classList.add('open');settingsOverlay.classList.add('open')}
+}
+
+$('btnSettings').addEventListener('click',toggleSettings);
+settingsOverlay.addEventListener('click',()=>{settingsPanel.classList.remove('open');settingsOverlay.classList.remove('open')});
+$('settingColor').addEventListener('click',()=>{
+  const p=settingsPanel.getBoundingClientRect();
+  themeColorInput.style.left=p.left+'px';
+  themeColorInput.style.top=p.top+'px';
+  themeColorInput.style.width='1px';
+  themeColorInput.style.height='1px';
+  themeColorInput.style.opacity='0.01';
+  themeColorInput.focus();
+  if(themeColorInput.showPicker) themeColorInput.showPicker();
+  else themeColorInput.click();
+});
+themeColorInput.addEventListener('input',e=>applyThemeColor(e.target.value));
+darkToggle.addEventListener('input',()=>{
+  followSystem=darkToggle.selected;
+  if(followSystem){
+    isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    applyDarkMode();
+  }
+});
+$('settingChangelog').addEventListener('click',async()=>{
+  const dlg=$('dlgChangelog');
+  const el=$('changelogContent');
+  try{
+    const res=await fetch('changelog.json');
+    const data=await res.json();
+    el.innerHTML=data.map(v=>`
+      <div class="cl-version">
+        <div class="cl-header">
+          <span class="cl-tag">v${v.version}</span>
+          <span class="cl-date">${v.date}</span>
+        </div>
+        <ul class="cl-list">${v.changes.map(c=>`<li>${c}</li>`).join('')}</ul>
+      </div>
+    `).join('');
+  }catch{
+    el.innerHTML='<p style="color:var(--md-sys-color-error)">无法加载更新记录</p>';
+  }
+  dlg.show();
+});
+$('changelogClose').addEventListener('click',()=>$('dlgChangelog').close());
+
+// Re-position settings when toolbar moves
+const _posObserver=new MutationObserver(()=>{if(settingsPanel.classList.contains('open'))positionSettings()});
+_posObserver.observe(tb,{attributes:true,attributeFilter:['style']});
+
+// System theme listener
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{
+  if(followSystem){isDark=e.matches;applyDarkMode()}
+});
+
+// Init: show UI immediately, apply theme when ready
+async function initAndShow(){
+  await document.fonts.ready;
+  tb.style.visibility='visible';
+  document.querySelector('.zoom-bar').style.visibility='visible';
+  $('cd').style.visibility='visible';
+  themeColorCircle.style.background=themeColor;
+  themeColorInput.value=themeColor;
+  applyDarkMode();
+}
+if(window._mcu){initAndShow()}
+else{window.addEventListener('mcu-ready',()=>initAndShow(),{once:true})}
+
+/* ===== Init ===== */
+setTimeout(()=>{const h=$('hb');if(h){h.style.opacity='0';setTimeout(()=>h.remove(),1200)}},5000);
+resize();updateCursor();setTool('pen');
+</script>
+</body>
+</html>
