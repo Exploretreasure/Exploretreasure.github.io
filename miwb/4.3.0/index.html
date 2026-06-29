@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>无限白板</title>
+<link rel="icon" type="image/x-icon" href="example.ico">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+<script type="importmap" crossorigin="same-origin">
+{"imports":{"@material/web/":"https://esm.run/@material/web/","@material/material-color-utilities":"https://esm.run/@material/material-color-utilities"}}
+</script>
+<script type="module">
+import '@material/web/all.js';
+import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+import {argbFromHex,hexFromArgb,themeFromSourceColor} from '@material/material-color-utilities';
+document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+window._mcu={argbFromHex,hexFromArgb,themeFromSourceColor};
+window.dispatchEvent(new Event('mcu-ready'));
+</script>
+<style>
+/* ===== MD3 Color Tokens ===== */
+
+:root {
+  --md-sys-color-primary: #6750a4;
+  --md-sys-color-on-primary: #fff;
+  --md-sys-color-primary-container: #eaddff;
+  --md-sys-color-on-primary-container: #21005d;
+  --md-sys-color-surface: #fef7ff;
+  --md-sys-color-on-surface: #1d1b20;
+  --md-sys-color-on-surface-variant: #49454f;
+  --md-sys-color-surface-container: #ece6f0;
+  --md-sys-color-surface-container-high: #e6e0e9;
+  --md-sys-color-surface-container-highest: #e0dae4;
+  --md-sys-color-outline: #79747e;
+  --md-sys-color-outline-variant: #cac4d0;
+  --md-sys-color-inverse-surface: #322f35;
+  --md-sys-color-inverse-on-surface: #f5eff7;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-full: 9999px;
+}
+
+/* ===== Base ===== */
+body { overflow: hidden; font-family: 'Roboto', sans-serif; background: var(--md-sys-color-surface); touch-action: none; user-select: none; margin: 0; }
+canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; touch-action: none; }
+#bgC { z-index: 0; } #drC { z-index: 1; }
+.theme-fade { position: fixed; inset: 0; z-index: 500; pointer-events: none; opacity: 0; }
+
+
+
+/* ===== Material Symbols ===== */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 22px; user-select: none; pointer-events: none;
+}
+
+/* ===== md-icon-button sizing ===== */
+.toolbar md-icon-button {
+  width: 40px; height: 40px;
+  transition: none;
+}
+.toolbar md-icon-button.active {
+  background: var(--md-sys-color-primary-container);
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: none;
+}
+.zoom-bar md-icon-button { --md-icon-button-icon-size: 20px; width: 32px; height: 32px; }
+md-icon { font-family: 'Material Symbols Outlined'; }
+
+/* ===== Toolbar ===== */
+.toolbar {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  width: fit-content; display: flex; align-items: center;
+  background: var(--md-sys-color-surface-container);
+  padding: 4px 6px; border-radius: var(--md-sys-shape-corner-full);
+  box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3);
+  z-index: 100; visibility: hidden; transition: box-shadow .2s ease;
+}
+.toolbar .sep { width: 1px; height: 24px; background: var(--md-sys-color-outline-variant); margin: 0 2px; flex-shrink: 0; opacity: .4; }
+.toolbar.pressed { box-shadow: 0 3px 8px 2px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.22); cursor: grabbing; }
+.toolbar .handle { width: 20px; height: 40px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: grab; touch-action: none; border-radius: var(--md-sys-shape-corner-small); }
+.toolbar .handle .material-symbols-outlined { font-size: 14px; color: var(--md-sys-color-outline); opacity: .5; }
+
+/* ===== Quick color buttons ===== */
+.quick-color-btn {
+  width: 40px; height: 40px; border-radius: var(--md-sys-shape-corner-full);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background .15s, box-shadow .15s; border: none; flex-shrink: 0;
+  background: transparent; position: relative;
+}
+.quick-color-btn:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.quick-color-btn:active { background: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent); }
+.quick-color-btn.active { background: var(--md-sys-color-primary-container); }
+.quick-circle {
+  width: 18px; height: 18px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+/* ===== Pen color indicator ===== */
+.pen-wrap { position: relative; display: flex; }
+.pen-wrap::after {
+  content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%);
+  width: 14px; height: 3px; border-radius: 2px;
+  background: var(--pen-col, #1f1f1f); z-index: 2; transition: background .2s;
+}
+
+/* ===== Menu ===== */
+.menu-overlay { position: fixed; inset: 0; z-index: 199; display: none; pointer-events: none; }
+.menu-overlay.open { display: block; pointer-events: auto; }
+.color-menu {
+  position: fixed; z-index: 200; display: none; width: 260px;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: 0 4px 8px 3px rgba(0,0,0,.15), 0 1px 3px rgba(0,0,0,.3);
+  overflow: hidden; transform-origin: bottom center; padding: 4px 0;
+}
+.color-menu.open { display: block; animation: menu-in .2s cubic-bezier(.2,0,0,1); }
+.color-menu.closing { display: block; animation: menu-out .15s cubic-bezier(.4,0,1,1) forwards; }
+@keyframes menu-in { from { opacity: 0; transform: scale(.92) translateY(8px); } to { opacity: 1; } }
+@keyframes menu-out { from { opacity: 1; } to { opacity: 0; transform: scale(.92) translateY(8px); } }
+.menu-title { font-size: 10px; font-weight: 500; letter-spacing: .5px; color: var(--md-sys-color-on-surface-variant); padding: 8px 12px 4px; text-transform: uppercase; }
+.color-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(7, 1fr); gap: 4px; padding: 6px 10px 8px; }
+.color-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform .15s, border-color .15s, box-shadow .15s; justify-self: center; box-sizing: border-box; }
+.color-dot:hover { transform: scale(1.15); box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+.color-dot:active { transform: scale(.9); }
+.color-dot.active { border-color: var(--md-sys-color-primary); transform: scale(1.1); box-shadow: 0 0 0 2px var(--md-sys-color-primary-container); }
+.color-dot.white { box-shadow: inset 0 0 0 1.5px var(--md-sys-color-outline-variant); }
+.custom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.custom-col { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px 8px; cursor: pointer; position: relative; overflow: hidden; }
+.custom-col + .custom-col { border-left: 1px solid var(--md-sys-color-outline-variant); }
+.custom-col input[type="color"] { width: 1px; height: 1px; border: none; padding: 0; position: absolute; opacity: 0; bottom: 0; left: 0; pointer-events: none; }
+.custom-col label { font-size: 13px; color: var(--md-sys-color-on-surface); cursor: pointer; font-weight: 500; line-height: 1.2; }
+.custom-col .hex { font-size: 11px; color: var(--md-sys-color-on-surface-variant); font-family: 'Roboto Mono', monospace; line-height: 1.2; }
+.color-line { height: 2.5px; border-radius: 1.25px; width: 100%; transition: background .2s; position: absolute; bottom: 0; left: 0; }
+.size-row { display: flex; align-items: center; gap: 8px; padding: 6px 12px 10px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.size-row md-slider { flex: 1; min-width: 0; }
+.size-preview { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.size-dot { border-radius: 50%; background: var(--md-sys-color-on-surface); transition: width .1s, height .1s; }
+.size-val { font-size: 13px; min-width: 24px; text-align: center; font-weight: 500; color: var(--md-sys-color-on-surface); flex-shrink: 0; }
+
+/* ===== Zoom bar ===== */
+.zoom-bar { position: fixed; bottom: 16px; right: 16px; display: flex; align-items: center; background: var(--md-sys-color-surface-container); padding: 2px 6px; border-radius: var(--md-sys-shape-corner-full); box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3); z-index: 100; visibility: hidden; }
+.zoom-label { font-size: 12px; color: var(--md-sys-color-on-surface-variant); min-width: 48px; text-align: center; cursor: pointer; font-weight: 500; padding: 4px 0; border-radius: var(--md-sys-shape-corner-small); }
+.zoom-label:hover { background: rgba(0,0,0,.06); }
+[data-theme="dark"] .zoom-label:hover { background: rgba(255,255,255,.06); }
+
+/* ===== Coordinates ===== */
+.coords { position: fixed; bottom: 16px; left: 16px; font-size: 11px; color: var(--md-sys-color-on-surface-variant); z-index: 100; font-variant-numeric: tabular-nums; background: var(--md-sys-color-surface-container); padding: 4px 12px; border-radius: var(--md-sys-shape-corner-full); font-family: 'Roboto Mono', monospace; visibility: hidden; box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3); }
+
+/* ===== Toast ===== */
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--md-sys-color-inverse-surface); color: var(--md-sys-color-inverse-on-surface); padding: 12px 24px; border-radius: var(--md-sys-shape-corner-small); font-size: 14px; z-index: 999; opacity: 0; transition: all .25s cubic-bezier(.2,0,0,1); pointer-events: none; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ===== Hint ===== */
+.hint { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container); padding: 6px 20px; border-radius: var(--md-sys-shape-corner-full); box-shadow: 0 1px 3px 1px rgba(0,0,0,.15), 0 1px 2px rgba(0,0,0,.3); z-index: 100; pointer-events: none; transition: opacity 1s; display: flex; align-items: center; gap: 8px; }
+.hint .material-symbols-outlined { font-size: 16px; }
+
+/* ===== Eraser cursor ===== */
+.eraser-cursor { position: fixed; border-radius: 50%; border: 2px solid var(--md-sys-color-primary); pointer-events: none; z-index: 50; display: none; transform: translate(-50%,-50%); background: rgba(11,87,208,.08); }
+[data-theme="dark"] .eraser-cursor { background: rgba(168,199,250,.1); }
+#fi { display: none; }
+
+/* ===== Settings ===== */
+.settings-overlay { position: fixed; inset: 0; z-index: 299; display: none; }
+.settings-overlay.open { display: block; }
+.settings-panel {
+  position: fixed; z-index: 300;
+  display: none; min-width: 280px;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-large);
+  box-shadow: 0 4px 8px 3px rgba(0,0,0,.15), 0 1px 3px rgba(0,0,0,.3);
+  overflow: hidden; animation: panel-in .2s cubic-bezier(.2,0,0,1);
+}
+.settings-panel.open { display: block; }
+@keyframes panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.settings-title { font-size: 14px; font-weight: 500; color: var(--md-sys-color-on-surface); padding: 16px 16px 8px; }
+.settings-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; transition: background .15s; position: relative; overflow: hidden; }
+.settings-item:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.settings-item-label { font-size: 14px; color: var(--md-sys-color-on-surface); }
+.settings-item-desc { font-size: 12px; color: var(--md-sys-color-on-surface-variant); margin-top: 2px; }
+.color-indicator { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--md-sys-color-outline-variant); cursor: pointer; transition: transform .15s; }
+.color-indicator:hover { transform: scale(1.15); }
+
+#themeColorInput { position: fixed; width: 0; height: 0; padding: 0; border: none; opacity: 0; }
+
+/* ===== Author banner ===== */
+.author-banner {
+  position: relative; display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; overflow: hidden;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.author-banner::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to right, var(--md-sys-color-surface-container) 0%, transparent 60%);
+  z-index: 1;
+}
+.author-bg {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 55%;
+  background: url('photo.png') left center / cover no-repeat;
+  mask-image: linear-gradient(to right, rgba(0,0,0,1) 30%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, rgba(0,0,0,1) 30%, transparent 100%);
+}
+.author-text {
+  position: relative; z-index: 2; display: flex; flex-direction: column; gap: 2px;
+}
+.author-name { font-size: 14px; font-weight: 500; color: var(--md-sys-color-on-surface); }
+.author-sub { font-size: 12px; color: var(--md-sys-color-on-surface-variant); }
+
+/* ===== Default color buttons ===== */
+.default-color-row {
+  display: flex; gap: 8px; margin-top: 8px;
+}
+.default-color-row md-filled-button {
+  --md-filled-button-container-shape: var(--md-sys-shape-corner-full);
+  width: 36px; height: 36px; min-height: 36px; padding: 0;
+  --md-filled-button-container-padding: 0;
+  border: 2px solid transparent;
+  transition: border-color .15s, box-shadow .15s;
+}
+.default-color-row md-filled-button.active {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 2px var(--md-sys-color-primary-container);
+}
+.default-color-row md-filled-button .btn-dot {
+  width: 20px; height: 20px; border-radius: 50%; pointer-events: none;
+}
+.default-color-row md-filled-button[data-val="theme"] {
+  --md-filled-button-container-color: var(--md-sys-color-primary);
+}
+.default-color-row md-filled-button[data-val="#000000"] {
+  --md-filled-button-container-color: #000000;
+}
+.default-color-row md-filled-button[data-val="#ffffff"] {
+  --md-filled-button-container-color: #ffffff;
+  --md-filled-button-label-text-color: #000;
+}
+.default-color-row md-filled-button[data-val="custom"] {
+  --md-filled-button-container-color: var(--md-sys-color-surface-container-high);
+  background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red) !important;
+}
+
+/* ===== Changelog ===== */
+.cl-version + .cl-version { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.cl-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cl-tag { font-size: 13px; font-weight: 500; color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); padding: 2px 10px; border-radius: var(--md-sys-shape-corner-full); }
+.cl-date { font-size: 12px; color: var(--md-sys-color-on-surface-variant); }
+.cl-list { margin: 0; padding-left: 20px; }
+.cl-list li { font-size: 13px; color: var(--md-sys-color-on-surface); line-height: 1.8; }
+#dlgChangelog [slot="content"] { max-height: 50vh; overflow-y: auto; min-width: 280px; }
+
+</style>
+</head>
+<body data-theme="light">
+
+<canvas id="bgC"></canvas>
+<canvas id="bgC2" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;opacity:0;pointer-events:none"></canvas>
+<canvas id="drC"></canvas>
+<div class="theme-fade" id="fade"></div>
+<div class="eraser-cursor" id="ec"></div>
+
+<!-- ===== Toolbar ===== -->
+<div class="toolbar" id="tb">
+  <div class="handle" id="handleL"><span class="material-symbols-outlined">drag_indicator</span></div>
+  <div class="pen-wrap" id="penWrap"><md-icon-button id="btnPen" title="画笔"><md-icon>edit</md-icon></md-icon-button></div>
+  <md-icon-button id="btnEraser" title="橡皮"><md-icon>ink_eraser</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <div class="quick-color-btn" data-color="#B3261E" title="红 (右键自定义)"><div class="quick-circle" style="background:#B3261E"></div></div>
+  <div class="quick-color-btn" data-color="#386A20" title="绿 (右键自定义)"><div class="quick-circle" style="background:#386A20"></div></div>
+  <div class="quick-color-btn" data-color="#0B57D0" title="蓝 (右键自定义)"><div class="quick-circle" style="background:#0B57D0"></div></div>
+  <div class="sep"></div>
+  <md-icon-button id="btnPan" title="漫游"><md-icon>pan_tool</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnUndo" title="撤销"><md-icon>undo</md-icon></md-icon-button>
+  <md-icon-button id="btnRedo" title="重做"><md-icon>redo</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnDark" title="深浅模式"><md-icon id="darkIcon">dark_mode</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnSave" title="保存"><md-icon>save</md-icon></md-icon-button>
+  <md-icon-button id="btnOpen" title="打开"><md-icon>folder_open</md-icon></md-icon-button>
+  <div class="sep"></div>
+  <md-icon-button id="btnClear" title="清空"><md-icon>delete</md-icon></md-icon-button>
+  <md-icon-button id="btnSettings" title="设置"><md-icon>settings</md-icon></md-icon-button>
+  <div class="handle" id="handleR"><span class="material-symbols-outlined">drag_indicator</span></div>
+</div>
+
+<!-- ===== Color Menu ===== -->
+<div class="menu-overlay" id="menuOverlay"></div>
+<div class="color-menu" id="menu">
+  <div class="menu-title">调色板</div>
+  <div class="color-grid" id="cg"></div>
+  <div class="custom-row">
+    <div class="custom-col" id="customCol">
+      <md-ripple></md-ripple>
+      <input type="color" id="cp" value="#6750A4">
+      <label>自定义颜色</label>
+      <span class="hex" id="ch">#6750A4</span>
+      <div class="color-line" id="customLine" style="background:#6750A4"></div>
+    </div>
+    <div class="custom-col" id="themeCol">
+      <md-ripple></md-ripple>
+      <label>主题颜色</label>
+      <span class="hex" id="themeHex">#6750A4</span>
+      <div class="color-line" id="menuThemeDot" style="background:#6750A4"></div>
+    </div>
+  </div>
+  <div class="menu-title">画笔粗细</div>
+  <div class="size-row">
+    <div class="size-preview"><div class="size-dot" id="sd"></div></div>
+    <md-slider id="sl" min="1" max="60" value="3" labeled></md-slider>
+    <span class="size-val" id="sn">3</span>
+  </div>
+</div>
+
+<!-- ===== Zoom ===== -->
+<div class="zoom-bar">
+  <md-icon-button id="zO" title="缩小"><md-icon>remove</md-icon></md-icon-button>
+  <span class="zoom-label" id="zl">100%</span>
+  <md-icon-button id="zI" title="放大"><md-icon>add</md-icon></md-icon-button>
+</div>
+
+<div class="coords" id="cd">0, 0</div>
+
+<!-- ===== Settings ===== -->
+<div class="settings-overlay" id="settingsOverlay"></div>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-title">设置</div>
+  <div class="author-banner">
+    <div class="author-bg"></div>
+    <div class="author-text">
+      <div class="author-name">Made with ❤️ by 萌萌</div>
+      <div class="author-sub">无限白板 · Material Design 3</div>
+    </div>
+  </div>
+  <div class="settings-item" id="settingFullscreen">
+    <div>
+      <div class="settings-item-label">全屏</div>
+      <div class="settings-item-desc">进入或退出全屏模式</div>
+    </div>
+    <md-icon-button id="btnFullscreen" title="全屏"><md-icon>fullscreen</md-icon></md-icon-button>
+  </div>
+  <div class="settings-item" id="settingColor">
+    <div>
+      <div class="settings-item-label">主题颜色</div>
+      <div class="settings-item-desc">更改界面主色调</div>
+    </div>
+    <div class="color-indicator" id="themeColorCircle"></div>
+  </div>
+  <div class="settings-item">
+    <div class="settings-item-label">跟随系统深浅色</div>
+    <md-switch id="darkToggle"></md-switch>
+  </div>
+  <div class="settings-item" style="flex-direction:column;align-items:stretch;cursor:default">
+    <div class="settings-item-label">默认绘制颜色</div>
+    <div class="settings-item-desc">新建画布时的默认画笔颜色</div>
+    <div class="default-color-row" id="defaultColorRow">
+      <md-filled-button data-val="theme" title="主题色"></md-filled-button>
+      <md-filled-button data-val="#000000" title="黑"></md-filled-button>
+      <md-filled-button data-val="#ffffff" title="白"></md-filled-button>
+      <md-filled-button data-val="custom" title="自定义" id="btnDefaultCustom"></md-filled-button>
+    </div>
+  </div>
+  <div class="settings-item" id="settingGrid" style="flex-direction:column;align-items:stretch;gap:8px">
+    <div class="settings-item-label">画布网格线</div>
+    <md-filled-text-field id="gridInput" label="网格深浅" type="number" value="5" min="0" max="100" suffix-text="%" style="width:100%"></md-filled-text-field>
+  </div>
+  <div class="settings-item" id="settingChangelog">
+    <div>
+      <div class="settings-item-label">版本更新记录</div>
+      <div class="settings-item-desc">查看历史版本变更</div>
+    </div>
+    <span class="material-symbols-outlined" style="font-size:20px;color:var(--md-sys-color-on-surface-variant)">history</span>
+  </div>
+</div>
+<input type="color" id="themeColorInput">
+
+<div class="hint" id="hb"><span class="material-symbols-outlined">info</span> 滚轮缩放 · 空格+拖拽漫游 · 三指擦除</div>
+<div class="toast" id="toast"></div>
+
+<md-dialog id="dlgChangelog">
+  <div slot="headline">版本更新记录</div>
+  <div slot="content" id="changelogContent"></div>
+  <div slot="actions">
+    <md-filled-button id="changelogClose">关闭</md-filled-button>
+  </div>
+</md-dialog>
+
+<md-dialog id="dlg" type="alert">
+  <div slot="headline">清空画布</div>
+  <div slot="content">所有笔画将被清除，此操作无法撤销。</div>
+  <div slot="actions">
+    <md-text-button id="dlgCancel">取消</md-text-button>
+    <md-filled-button id="dlgOk">清空</md-filled-button>
+  </div>
+</md-dialog>
+
+<input type="file" id="fi" accept=".wbjson,.json">
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ===== DOM ===== */
+const bgC = $('bgC'), drC = $('drC');
+const bgX = bgC.getContext('2d'), drX = drC.getContext('2d');
+const tb = $('tb'), ec = $('ec'), menu = $('menu'), penWrap = $('penWrap');
+
+/* ===== State ===== */
+let tool = 'pen', col = '#6750A4', lw = 3, gridAlpha = 5;
+const ERASER_R = 4; // eraser radius — matches center-line touch
+let bg = '#f0f0f0', bgm = 'light', sc = 1, ox = 0, oy = 0;
+let hist = [], redoStk = [], cur = null;
+let drawing = false, panning = false, spaceH = false, erasing = false;
+let mx0 = 0, my0 = 0, eraserX = 0, eraserY = 0;
+const CURSORS = { pen: 'crosshair', eraser: 'none', pan: 'grab' };
+function updateCursor() { drC.style.cursor = panning ? 'grabbing' : (CURSORS[tool] || 'crosshair'); }
+function s2w(sx, sy) { return { x: (sx - ox) / sc, y: (sy - oy) / sc }; }
+
+/* ===== Resize ===== */
+function resize() { bgC.width = innerWidth; bgC.height = innerHeight; $('bgC2').width = innerWidth; $('bgC2').height = innerHeight; drC.width = innerWidth; drC.height = innerHeight; drawBg(); drawAll(); }
+addEventListener('resize', resize);
+
+/* ===== Background ===== */
+function drawBg() {
+  const c = bgX; c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,bgC.width,bgC.height);
+  c.fillStyle = bg; c.fillRect(0,0,bgC.width,bgC.height);
+  const g=40; c.strokeStyle = bgm==='dark'?`rgba(255,255,255,${gridAlpha/100})`:`rgba(0,0,0,${gridAlpha/100})`; c.lineWidth=.5;
+  const sx=ox%(g*sc),sy=oy%(g*sc),st=g*sc;
+  c.beginPath();
+  for(let x=sx;x<bgC.width;x+=st){c.moveTo(x,0);c.lineTo(x,bgC.height)}
+  for(let y=sy;y<bgC.height;y+=st){c.moveTo(0,y);c.lineTo(bgC.width,y)}
+  c.stroke();
+}
+
+/* ===== Draw ===== */
+function drawAll(){const c=drX;c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,drC.width,drC.height);c.setTransform(sc,0,0,sc,ox,oy);for(const s of hist)drawS(c,s);if(cur)drawS(c,cur)}
+function drawS(c,s){if(!s.pts||!s.pts.length)return;c.save();c.lineCap='round';c.lineJoin='round';c.lineWidth=s.lw;if(s.era){c.globalCompositeOperation='destination-out';c.strokeStyle='rgba(0,0,0,1)';c.fillStyle='rgba(0,0,0,1)'}else{c.globalCompositeOperation='source-over';c.strokeStyle=s.col;c.fillStyle=s.col}const p=s.pts;if(p.length===1){c.beginPath();c.arc(p[0].x,p[0].y,s.lw/2,0,Math.PI*2);c.fill()}else{c.beginPath();c.moveTo(p[0].x,p[0].y);for(let i=1;i<p.length-1;i++)c.quadraticCurveTo(p[i].x,p[i].y,(p[i].x+p[i+1].x)/2,(p[i].y+p[i+1].y)/2);c.lineTo(p[p.length-1].x,p[p.length-1].y);c.stroke()}c.restore()}
+
+/* ===== Erase ===== */
+function eraseAt(wx,wy){const r=ERASER_R,r2=r*r;let ch=false;for(let i=hist.length-1;i>=0;i--){if(hist[i].era)continue;for(const p of hist[i].pts){if((p.x-wx)**2+(p.y-wy)**2<r2){hist.splice(i,1);ch=true;break}}}if(ch){redoStk.length=0;drawAll()}}
+function eraseAlong(fx,fy,tx,ty){const dx=tx-fx,dy=ty-fy,dist=Math.hypot(dx,dy),step=Math.max(ERASER_R/2,2),steps=Math.max(1,Math.ceil(dist/step));for(let i=0;i<=steps;i++){const t=i/steps;eraseAt(fx+dx*t,fy+dy*t)}}
+function eraseAtRadius(pts,r){const rW=r/sc,r2=rW*rW;let ch=false;for(let i=hist.length-1;i>=0;i--){if(hist[i].era)continue;for(const sp of hist[i].pts){for(const ep of pts){if((sp.x-ep.x)**2+(sp.y-ep.y)**2<r2){hist.splice(i,1);ch=true;break}}if(ch)break}if(ch){redoStk.length=0;drawAll();ch=false}}}
+
+/* ===== Menu ===== */
+const menuOverlay=$('menuOverlay');
+function openMenu(){
+  menu.classList.add('open');
+  menuOverlay.classList.add('open');
+  const r=penWrap.getBoundingClientRect();
+  const mw=menu.offsetWidth, mh=menu.offsetHeight;
+  let left=r.left+r.width/2-mw/2;
+  let top=r.top-mh-12;
+  if(top<8) top=r.bottom+12;
+  if(top+mh>innerHeight-8) top=innerHeight-mh-8;
+  left=Math.max(8,Math.min(left,innerWidth-mw-8));
+  menu.style.left=left+'px';
+  menu.style.top=top+'px';
+}
+function closeMenu(){
+  menu.classList.remove('open');
+  menu.classList.add('closing');
+  menuOverlay.classList.remove('open');
+  const done=()=>{menu.classList.remove('closing')};
+  menu.addEventListener('animationend',done,{once:true});
+  setTimeout(done,200); /* safety timeout */
+}
+function hideMenu(){
+  menu.classList.remove('open','closing');
+  menu.style.display='none';
+  menuOverlay.classList.remove('open');
+  setTimeout(()=>{menu.style.display=''},200);
+}
+function menuIsOpen(){return menu.classList.contains('open')}
+/* close menu when clicking/tapping outside */
+function closeMenuAndForward(e){
+  if(!menuIsOpen()) return;
+  if(e.target.closest('.color-menu')||e.target.closest('.toolbar')) return;
+  closeMenu();
+  const sx=e.clientX, sy=e.clientY;
+  const isMouse=e.pointerType==='mouse';
+  menuOverlay.style.pointerEvents='none';
+  if(isMouse){
+    drC.dispatchEvent(new MouseEvent('mousedown',{clientX:sx,clientY:sy,button:0,bubbles:true}));
+  }else{
+    if(tool==='pan'||spaceH){tState='pan';panning=true;mx0=sx;my0=sy;updateCursor()}
+    else if(tool==='eraser'){tState='erase';erasing=true;const w=s2w(sx,sy);eraserX=w.x;eraserY=w.y;eraseAt(w.x,w.y)}
+    else{tState='draw';drawing=true;const w=s2w(sx,sy);cur={col,lw,pts:[{x:w.x,y:w.y}],era:false}}
+  }
+}
+document.addEventListener('pointerdown',closeMenuAndForward,true);
+/* touch sequence stays on overlay — forward move/end to canvas */
+menuOverlay.addEventListener('touchstart',()=>{ menuOverlay.style.pointerEvents='none'; }, {passive:true});
+menuOverlay.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches;
+  if(tState==='draw'&&t.length===1&&drawing&&cur){const w=s2w(t[0].clientX,t[0].clientY);cur.pts.push({x:w.x,y:w.y});drawAll()}
+  if(tState==='erase'&&t.length===1&&erasing){const w=s2w(t[0].clientX,t[0].clientY);eraseAlong(eraserX,eraserY,w.x,w.y);eraserX=w.x;eraserY=w.y}
+  if(tState==='pan'&&t.length===1&&panning){ox+=t[0].clientX-mx0;oy+=t[0].clientY-my0;mx0=t[0].clientX;my0=t[0].clientY;drawBg();drawAll()}
+}, {passive:false});
+menuOverlay.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(e.touches.length===0){
+    if(drawing&&cur){drawing=false;if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawAll()}
+    erasing=false;panning=false;tState='none';hideEC();
+    setTimeout(()=>{ menuOverlay.style.pointerEvents=''; }, 200);
+  }
+}, {passive:false});
+
+/* ===== Eraser cursor ===== */
+function showEC(sx,sy,r){ec.style.display='block';ec.style.left=sx+'px';ec.style.top=sy+'px';ec.style.width=r*2+'px';ec.style.height=r*2+'px'}
+function hideEC(){ec.style.display='none'}
+
+/* ===== Tool switching ===== */
+function setTool(t){
+  tool=t;
+  const isDark=document.body.dataset.theme==='dark';
+  ['btnPen','btnEraser','btnPan'].forEach(id=>{
+    const map={btnPen:'pen',btnEraser:'eraser',btnPan:'pan'};
+    const el=$(id);
+    const isActive=map[id]===t;
+    el.classList.toggle('active',isActive);
+    if(isActive){
+      el.style.background=isDark?'var(--md-sys-color-on-primary-container)':'var(--md-sys-color-primary-container)';
+      const icon=el.querySelector('md-icon');
+      if(icon) icon.style.color=isDark?'var(--md-sys-color-primary-container)':'var(--md-sys-color-on-primary-container)';
+    }else{
+      el.style.background='';
+      const icon=el.querySelector('md-icon');
+      if(icon) icon.style.color='';
+    }
+  });
+  if(t!=='eraser')hideEC();updateCursor();
+}
+
+/* ===== Toolbar events ===== */
+$('btnPen').addEventListener('click',()=>{if(tool==='pen'){menuIsOpen()?closeMenu():openMenu()}else{if(menuIsOpen())closeMenu();setTool('pen')}});
+/* Quick color buttons */
+document.querySelectorAll('.quick-color-btn').forEach(btn=>{
+  btn.addEventListener('click',e=>{
+    e.stopPropagation();
+    col=btn.dataset.color;
+    applyCol();syncGridActive();
+  });
+  btn.addEventListener('contextmenu',e=>{
+    e.preventDefault();e.stopPropagation();
+    const qc=btn.querySelector('.quick-circle');
+    const picker=document.createElement('input');
+    picker.type='color';
+    picker.value=btn.dataset.color;
+    picker.style.cssText='position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(picker);
+    picker.addEventListener('input',ev=>{
+      btn.dataset.color=ev.target.value;
+      qc.style.background=ev.target.value;
+      col=ev.target.value;
+      applyCol();syncGridActive();
+    });
+    picker.addEventListener('change',()=>document.body.removeChild(picker));
+    picker.showPicker();
+  });
+});
+$('btnEraser').addEventListener('click',()=>{if(menuIsOpen())closeMenu();setTool('eraser')});
+$('btnPan').addEventListener('click',()=>{if(menuIsOpen())closeMenu();setTool('pan')});
+$('btnUndo').addEventListener('click',()=>{if(hist.length){redoStk.push(hist.pop());drawAll()}});
+$('btnRedo').addEventListener('click',()=>{if(redoStk.length){hist.push(redoStk.pop());drawAll()}});
+$('btnDark').addEventListener('click',toggleDark);
+$('btnSave').addEventListener('click',doSave);
+$('btnOpen').addEventListener('click',doOpen);
+$('btnClear').addEventListener('click',()=>{if(hist.length)$('dlg').show()});
+
+/* ===== Colors ===== */
+/* Color grid: 7 hue columns × 7 shades, bottom→top dark→light */
+const cols=[
+  /* 黑灰 */ ['#000000','#1d1d1d','#444444','#666666','#999999','#cccccc','#ffffff'],
+  /* 红 */   ['#7F0000','#B3261E','#DC362E','#E74C3C','#FF8A80','#FFCDD2','#FFEBEE'],
+  /* 橙 */   ['#8C4E03','#E37400','#F39C12','#FFB74D','#FFD54F','#FFE0B2','#FFF3E0'],
+  /* 绿 */   ['#1B5E20','#386A20','#4CAF50','#81C784','#A5D6A7','#C8E6C9','#E8F5E9'],
+  /* 青 */   ['#004D40','#00695C','#00897B','#4DB6AC','#80CBC4','#B2DFDB','#E0F2F1'],
+  /* 蓝 */   ['#0B57D0','#1B72E8','#4285F4','#64B5F6','#90CAF9','#BBDEFB','#E3F2FD'],
+  /* 紫 */   ['#4A148C','#7B1FA2','#AB47BC','#CE93D8','#E1BEE7','#F3E5F5','#FAF5FF']
+];
+const cg=$('cg');
+cg.style.display='grid';
+cg.style.gridTemplateColumns='repeat(7,1fr)';
+cg.style.gridTemplateRows='repeat(7,1fr)';
+cg.style.gap='4px';
+/* render bottom→top (row 6=dark → row 0=light) */
+for(let row=6;row>=0;row--){
+  for(let col_i=0;col_i<7;col_i++){
+    const c=cols[col_i][row];
+    const d=document.createElement('div');
+    d.className='color-dot'+(c===col?' active':'')+(c==='#ffffff'?' white':'');
+    d.style.background=c;
+    d.addEventListener('click',()=>{col=c;applyCol();syncGridActive()});
+    cg.appendChild(d);
+  }
+}
+let _customColClicks=0,_customColTimer=null;
+$('customCol').addEventListener('click',()=>{
+  _customColClicks++;
+  clearTimeout(_customColTimer);
+  if(_customColClicks>=2){
+    _customColClicks=0;
+    if($('cp').showPicker)$('cp').showPicker();else $('cp').click();
+  }else{
+    col=$('cp').value;
+    applyCol();syncGridActive();
+    if(tool!=='pen') setTool('pen');
+    toast('自定义颜色: '+col);
+    _customColTimer=setTimeout(()=>{_customColClicks=0},400);
+  }
+});
+function applyCol(){penWrap.style.setProperty('--pen-col',col)}
+$('cp').addEventListener('input',e=>{col=e.target.value;syncCustomPicker()});
+$('themeCol').addEventListener('click',()=>{col=themeColor;applyCol();syncGridActive()});
+/* Update grid + quick buttons active state, but NOT the custom picker */
+function syncGridActive(){
+  cg.querySelectorAll('.color-dot').forEach(d=>{
+    const c=d.style.background;
+    const hex=c.startsWith('#')?c.toLowerCase():(()=>{const m=c.match(/\d+/g);return m&&m.length>=3?'#'+m.slice(0,3).map(x=>(+x).toString(16).padStart(2,'0')).join(''):c})();
+    d.classList.toggle('active',hex===col.toLowerCase());
+  });
+  document.querySelectorAll('.quick-color-btn').forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.color.toLowerCase()===col.toLowerCase());
+  });
+}
+/* Full sync: pen indicator + custom picker + grid + quick buttons */
+function syncAllUI(){
+  applyCol();
+  $('ch').textContent=col;
+  $('cp').value=col;
+  syncGridActive();
+}
+/* Sync only the custom picker (from custom picker input) */
+function syncCustomPicker(){
+  applyCol();
+  $('ch').textContent=col;
+  $('customLine').style.background=col;
+  syncGridActive();
+}
+
+/* ===== Slider ===== */
+const sl=$('sl'),sn=$('sn'),sd=$('sd');
+function updSz(){sn.textContent=lw;const d=Math.round(3+(lw-1)*30/59);sd.style.width=d+'px';sd.style.height=d+'px'}
+sl.addEventListener('input',()=>{lw=+sl.value;updSz()});
+updSz();
+syncAllUI();
+
+/* ===== Save/Open ===== */
+function doSave(){const d={v:1,bg,bgm,s:sc,ox,oy,gridAlpha,strokes:hist};const blob=new Blob([JSON.stringify(d)],{type:'application/json'});const a=document.createElement('a');const n=new Date();a.download=`wb_${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}_${String(n.getHours()).padStart(2,'0')}${String(n.getMinutes()).padStart(2,'0')}.wbjson`;a.href=URL.createObjectURL(blob);a.click();URL.revokeObjectURL(a.href);toast('已保存')}
+function doOpen(){$('fi').click()}
+$('fi').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);hist=d.strokes||[];bg=d.bg||'#f0f0f0';bgm=d.bgm||'light';sc=d.s||1;ox=d.ox||0;oy=d.oy||0;gridAlpha=d.gridAlpha??5;$('gridInput').value=gridAlpha;document.body.dataset.theme=bgm;redoStk=[];$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll();toast('已加载')}catch{toast('格式错误')}};r.readAsText(f);e.target.value=''});
+
+/* ===== Dialog ===== */
+const dlg=$('dlg');
+let dlgConfirmed=false;
+$('dlgOk').addEventListener('click',()=>{dlgConfirmed=true;dlg.close()});
+$('dlgCancel').addEventListener('click',()=>{dlgConfirmed=false;dlg.close()});
+
+
+/* ===== Default Color ===== */
+let defaultColorMode='theme';
+let defaultColorCustom='#6750A4';
+
+function getDefaultColor(){
+  if(defaultColorMode==='theme') return themeColor;
+  if(defaultColorMode==='custom') return defaultColorCustom;
+  return defaultColorMode;
+}
+$('defaultColorRow').addEventListener('click',e=>{
+  const btn=e.target.closest('md-filled-button');
+  if(!btn) return;
+  const val=btn.dataset.val;
+  if(val==='custom'){
+    const picker=document.createElement('input');
+    picker.type='color';
+    picker.value=defaultColorCustom;
+    picker.style.cssText='position:fixed;opacity:0;pointer-events:none';
+    document.body.appendChild(picker);
+    picker.addEventListener('input',ev=>{
+      defaultColorCustom=ev.target.value;
+      btn.style.setProperty('--md-filled-button-container-color',ev.target.value);
+    });
+    picker.addEventListener('change',()=>document.body.removeChild(picker));
+    if(picker.showPicker) picker.showPicker(); else picker.click();
+  }
+  defaultColorMode=val;
+  document.querySelectorAll('#defaultColorRow md-filled-button').forEach(b=>b.classList.toggle('active',b===btn));
+});
+/* Update clear dialog to apply default color */
+dlg.addEventListener('close',()=>{
+  if(dlgConfirmed){
+    dlgConfirmed=false;
+    hist=[];redoStk=[];cur=null;
+    col=getDefaultColor();
+    applyCol();syncAllUI();drawAll();
+    toast('已清空');
+  }
+});
+
+/* ===== Toast ===== */
+function toast(m){const s=$('toast');s.textContent=m;s.classList.add('show');clearTimeout(s._t);s._t=setTimeout(()=>s.classList.remove('show'),2500)}
+
+/* ===== Smooth Zoom ===== */
+let zoomTarget=null,zoomPX=0,zoomPY=0,zoomRAF=null;
+function zoomTick(){
+  if(zoomTarget===null){zoomRAF=null;return}
+  const diff=zoomTarget-sc;
+  if(Math.abs(diff)<.0005){sc=zoomTarget;zoomTarget=null;$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll();zoomRAF=null;return}
+  const prev=sc;
+  sc+=diff*.2;
+  ox=zoomPX-(zoomPX-ox)*(sc/prev);
+  oy=zoomPY-(zoomPY-oy)*(sc/prev);
+  $('zl').textContent=Math.round(sc*100)+'%';
+  drawBg();drawAll();
+  zoomRAF=requestAnimationFrame(zoomTick);
+}
+function doZoom(factor,px,py){
+  const ns=Math.max(.05,Math.min(100,(zoomTarget||sc)*factor));
+  zoomPX=px;zoomPY=py;zoomTarget=ns;
+  if(!zoomRAF) zoomRAF=requestAnimationFrame(zoomTick);
+}
+$('zI').addEventListener('click',()=>{doZoom(1.25,drC.width/2,drC.height/2)});
+$('zO').addEventListener('click',()=>{doZoom(1/1.25,drC.width/2,drC.height/2)});
+$('zl').addEventListener('click',()=>{zoomPX=drC.width/2;zoomPY=drC.height/2;zoomTarget=1;if(!zoomRAF)zoomRAF=requestAnimationFrame(zoomTick)});
+
+/* ===== Wheel: trackpad pan / mouse zoom / pinch zoom ===== */
+let _tpModeUntil=0;
+drC.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const now=performance.now();
+  /* ctrlKey = pinch zoom on trackpad */
+  if(e.ctrlKey){doZoom(1-e.deltaY*.012,e.clientX,e.clientY);return}
+  /* detect trackpad: deltaMode=0 (pixels) + small delta OR has deltaX */
+  const isTrackpad=e.deltaMode===0&&(e.deltaX!==0||Math.abs(e.deltaY)<100);
+  if(isTrackpad){
+    _tpModeUntil=now+150;
+    zoomTarget=null;if(zoomRAF){cancelAnimationFrame(zoomRAF);zoomRAF=null}
+    ox-=e.deltaX;oy-=e.deltaY;
+    drawBg();drawAll();return;
+  }
+  /* still in pan mode → vertical pan only */
+  if(now<_tpModeUntil){
+    zoomTarget=null;if(zoomRAF){cancelAnimationFrame(zoomRAF);zoomRAF=null}
+    oy-=e.deltaY;
+    drawBg();drawAll();return;
+  }
+  /* mouse wheel (deltaMode=1 or large delta) = zoom */
+  doZoom(e.deltaY<0?1.3:1/1.3,e.clientX,e.clientY);
+},{passive:false});
+
+/* ===== Keyboard ===== */
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&!spaceH&&!e.repeat){spaceH=true;e.preventDefault()}if(!e.ctrlKey&&!e.metaKey){if(e.key==='b'||e.key==='B')setTool('pen');if(e.key==='e'||e.key==='E')setTool('eraser');if(e.key==='h'||e.key==='H')setTool('pan')}if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){e.preventDefault();if(hist.length){redoStk.push(hist.pop());drawAll()}}if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){e.preventDefault();if(redoStk.length){hist.push(redoStk.pop());drawAll()}}if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();doSave()}if((e.ctrlKey||e.metaKey)&&e.key==='o'){e.preventDefault();doOpen()}if(e.key==='Escape'){hideMenu();return}
+  /* number keys 1-7 = color shortcuts (skip when typing in input) */
+  if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.target===document.body){
+    const _qBtns=document.querySelectorAll('.quick-color-btn');
+    const _colorMap={'1':()=>themeColor,'2':()=>_qBtns[0]?.dataset.color,'3':()=>_qBtns[1]?.dataset.color,'4':()=>_qBtns[2]?.dataset.color,'5':()=>'#000000','6':()=>'#ffffff'};
+    if(_colorMap[e.key]){
+      col=_colorMap[e.key]()||col;
+      applyCol();syncGridActive();
+      if(tool!=='pen') setTool('pen');
+      toast('颜色: '+col);
+    }
+    if(e.key==='7'){
+      col=$('cp').value;
+      applyCol();syncGridActive();
+      if(tool!=='pen') setTool('pen');
+      toast('自定义颜色: '+col);
+    }
+  }});
+document.addEventListener('keyup',e=>{if(e.code==='Space')spaceH=false});
+
+/* ===== Canvas mouse ===== */
+drC.addEventListener('mousedown',e=>{if(e.button===1||(e.button===0&&(tool==='pan'||spaceH))){panning=true;mx0=e.clientX;my0=e.clientY;updateCursor();startDoc();return}if(e.button!==0)return;if(tool==='eraser'){erasing=true;const w=s2w(e.clientX,e.clientY);eraserX=w.x;eraserY=w.y;eraseAt(w.x,w.y);startDoc();return}drawing=true;const w=s2w(e.clientX,e.clientY);cur={col,lw,pts:[{x:w.x,y:w.y}],era:false};startDoc()});
+function onDocMove(e){const w=s2w(e.clientX,e.clientY);$('cd').textContent=`${Math.round(w.x)}, ${Math.round(w.y)}`;if(tool==='eraser')showEC(e.clientX,e.clientY,ERASER_R*sc);else hideEC();if(panning){ox+=e.clientX-mx0;oy+=e.clientY-my0;mx0=e.clientX;my0=e.clientY;drawBg();drawAll();return}if(erasing){eraseAlong(eraserX,eraserY,w.x,w.y);eraserX=w.x;eraserY=w.y;return}if(drawing&&cur){cur.pts.push({x:w.x,y:w.y});drawAll()}}
+function onDocUp(){if(panning){panning=false;updateCursor()}else if(erasing){erasing=false}else if(drawing&&cur){drawing=false;if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawAll()}stopDoc()}
+function startDoc(){document.addEventListener('mousemove',onDocMove);document.addEventListener('mouseup',onDocUp)}
+function stopDoc(){document.removeEventListener('mousemove',onDocMove);document.removeEventListener('mouseup',onDocUp)}
+drC.addEventListener('mousemove',e=>{if(drawing||erasing||panning)return;const w=s2w(e.clientX,e.clientY);$('cd').textContent=`${Math.round(w.x)}, ${Math.round(w.y)}`;if(tool==='eraser')showEC(e.clientX,e.clientY,ERASER_R*sc);else hideEC()});
+drC.addEventListener('mouseleave',()=>{if(!drawing&&!erasing&&!panning)hideEC()});
+
+/* ===== Canvas touch ===== */
+let tState='none',pDist=0,t3prev=null;
+let _touch1Timer=null,_touch1Data=null;
+drC.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const t=e.touches;
+  /* 3+ fingers: erase */
+  if(t.length>=3){
+    clearTimeout(_touch1Timer);_touch1Timer=null;_touch1Data=null;
+    if(drawing&&cur){if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawing=false}
+    tState='3e';const c=t3c(t),r=t3r(t,c);showEC(c.sx,c.sy,r);eraseAtRadius([c],r);t3prev=c;return;
+  }
+  /* 2 fingers: pan — cancel any pending single-finger action */
+  if(t.length===2){
+    clearTimeout(_touch1Timer);_touch1Timer=null;_touch1Data=null;
+    if(drawing&&cur){if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawing=false}
+    erasing=false;drawing=false;
+    tState='pan';
+    mx0=(t[0].clientX+t[1].clientX)/2;my0=(t[0].clientY+t[1].clientY)/2;
+    pDist=Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);return;
+  }
+  /* 1 finger: delay slightly to see if a 2nd arrives */
+  if(t.length===1){
+    const tt=t[0];
+    _touch1Data={x:tt.clientX,y:tt.clientY};
+    _touch1Timer=setTimeout(()=>{
+      _touch1Timer=null;
+      if(!cur&&tState!=='pan'){
+        if(tool==='pan'||spaceH){tState='pan';panning=true;mx0=_touch1Data.x;my0=_touch1Data.y}
+        else if(tool==='eraser'){tState='erase';erasing=true;const w=s2w(_touch1Data.x,_touch1Data.y);eraserX=w.x;eraserY=w.y;eraseAt(w.x,w.y)}
+        else{tState='draw';drawing=true;const w=s2w(_touch1Data.x,_touch1Data.y);cur={col,lw,pts:[{x:w.x,y:w.y}],era:false}}
+      }
+      _touch1Data=null;
+    },50);
+  }
+}, {passive:false});
+drC.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches;
+  /* if 2nd finger arrived during delay, cancel pending draw */
+  if(t.length>=2&&_touch1Timer){clearTimeout(_touch1Timer);_touch1Timer=null;_touch1Data=null}if(tState==='3e'){if(t.length>=3){const c=t3c(t),r=t3r(t,c);showEC(c.sx,c.sy,r);const pts=[c];if(t3prev){for(let f=.33;f<1;f+=.33)pts.push({x:t3prev.x+(c.x-t3prev.x)*f,y:t3prev.y+(c.y-t3prev.y)*f})}eraseAtRadius(pts,r);t3prev=c}else{tState='none';hideEC()}return}if(tState==='pan'&&t.length===2){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;const dist=Math.hypot(dx,dy),cx=(t[0].clientX+t[1].clientX)/2,cy=(t[0].clientY+t[1].clientY)/2;if(pDist>0){const ns=Math.max(.05,Math.min(100,sc*(dist/pDist)));ox=cx-(cx-ox)*(ns/sc);oy=cy-(cy-oy)*(ns/sc);sc=ns;ox+=cx-mx0;oy+=cy-my0;$('zl').textContent=Math.round(sc*100)+'%';drawBg();drawAll()}pDist=dist;mx0=cx;my0=cy;return}if(tState==='pan'&&t.length===1&&panning){const tt=t[0];ox+=tt.clientX-mx0;oy+=tt.clientY-my0;mx0=tt.clientX;my0=tt.clientY;drawBg();drawAll();return}if(tState==='erase'&&t.length===1&&erasing){const w=s2w(t[0].clientX,t[0].clientY);eraseAlong(eraserX,eraserY,w.x,w.y);eraserX=w.x;eraserY=w.y}if(tState==='draw'&&t.length===1&&drawing&&cur){const w=s2w(t[0].clientX,t[0].clientY);cur.pts.push({x:w.x,y:w.y});drawAll()}}, {passive:false});
+drC.addEventListener('touchend',e=>{
+  e.preventDefault();
+  /* quick tap: timer still pending — execute immediately */
+  if(_touch1Timer&&_touch1Data){
+    clearTimeout(_touch1Timer);_touch1Timer=null;
+    const d=_touch1Data;_touch1Data=null;
+    if(tool==='pan'||spaceH){tState='pan';panning=true;mx0=d.x;my0=d.y}
+    else if(tool==='eraser'){tState='erase';erasing=true;const w=s2w(d.x,d.y);eraserX=w.x;eraserY=w.y;eraseAt(w.x,w.y)}
+    else{tState='draw';drawing=true;const w=s2w(d.x,d.y);cur={col,lw,pts:[{x:w.x,y:w.y}],era:false}}
+  }
+  clearTimeout(_touch1Timer);_touch1Timer=null;_touch1Data=null;
+  if(e.touches.length===0){if(drawing&&cur){drawing=false;if(cur.pts.length>=1){redoStk.length=0;hist.push(cur)}cur=null;drawAll()}erasing=false;panning=false;tState='none';t3prev=null;hideEC()}else if(e.touches.length<3&&tState==='3e'){tState='none';t3prev=null;hideEC()}}, {passive:false});
+function t3c(ts){let cx=0,cy=0;for(let i=0;i<3;i++){cx+=ts[i].clientX;cy+=ts[i].clientY}cx/=3;cy/=3;const w=s2w(cx,cy);return{sx:cx,sy:cy,x:w.x,y:w.y}}
+function t3r(ts,c){let mx=0;for(let i=0;i<3;i++){const d=Math.hypot(ts[i].clientX-c.sx,ts[i].clientY-c.sy);if(d>mx)mx=d}return Math.max(mx+25,40)}
+
+/* ===== Toolbar drag ===== */
+(function(){const DRAG_THRESHOLD=3;let drag=null;function onMove(e){if(!drag)return;const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;if(!drag.moved){if(Math.abs(dx)<DRAG_THRESHOLD&&Math.abs(dy)<DRAG_THRESHOLD)return;drag.moved=true;tb.classList.add('pressed');tb.style.cursor='grabbing';tb.style.left=drag.ol+'px';tb.style.top=drag.ot+'px';tb.style.bottom='auto';tb.style.transform='none'}let nl=drag.ol+dx,nt=drag.ot+dy;nl=Math.max(0,Math.min(innerWidth-tb.offsetWidth,nl));nt=Math.max(0,Math.min(innerHeight-tb.offsetHeight,nt));tb.style.left=nl+'px';tb.style.top=nt+'px'}function onUp(){if(drag&&!drag.moved){/* let button handle its own click/ripple */}tb.classList.remove('pressed');tb.style.cursor='';drag=null;document.removeEventListener('pointermove',onMove);document.removeEventListener('pointerup',onUp);document.removeEventListener('pointercancel',onUp)}tb.addEventListener('pointerdown',e=>{if(!e.target.closest('.toolbar'))return;const r=tb.getBoundingClientRect();drag={sx:e.clientX,sy:e.clientY,ol:r.left,ot:r.top,moved:false};tb.style.cursor='pointer';document.addEventListener('pointermove',onMove);document.addEventListener('pointerup',onUp);document.addEventListener('pointercancel',onUp)})})();
+
+/* ===== Settings ===== */
+const settingsPanel=$('settingsPanel'),settingsOverlay=$('settingsOverlay');
+const themeColorInput=$('themeColorInput'),themeColorCircle=$('themeColorCircle');
+const darkToggle=$('darkToggle');
+
+let themeColor='#6750A4',isDark=window.matchMedia('(prefers-color-scheme:dark)').matches,followSystem=true;
+
+
+function applyThemeColor(hex){
+  themeColor=hex;
+  themeColorCircle.style.background=hex;
+  themeColorInput.value=hex;
+  if($('menuThemeDot')){$('menuThemeDot').style.background=hex;$('themeHex').textContent=hex}
+  const root=document.documentElement;
+  const set=(k,v)=>root.style.setProperty(k,v);
+  const mcu=window._mcu;
+  if(!mcu)return;
+  const theme=mcu.themeFromSourceColor(mcu.argbFromHex(hex));
+  const s=isDark?theme.schemes.dark:theme.schemes.light;
+  const toJSON=o=>(typeof o.toJSON==='function'?o.toJSON():o);
+  const sc=toJSON(s);
+  const hexC=v=>mcu.hexFromArgb(v);
+  /* surfaceContainer* may be #000000 in older lib — derive from neutral palette */
+  const neut=theme.palettes.neutral;
+  const nTone=t=>hexC(neut.tone(t));
+  const surfLowest=isDark?nTone(6):nTone(88);
+  const surfLow=isDark?nTone(10):nTone(90);
+  const surfCont=isDark?nTone(12):nTone(92);
+  const surfHigh=isDark?nTone(17):nTone(94);
+  const surfHighest=isDark?nTone(22):nTone(96);
+  set('--md-sys-color-primary',hexC(sc.primary));
+  set('--md-sys-color-on-primary',hexC(sc.onPrimary));
+  set('--md-sys-color-primary-container',hexC(sc.primaryContainer));
+  set('--md-sys-color-on-primary-container',hexC(sc.onPrimaryContainer));
+  set('--md-sys-color-secondary',hexC(sc.secondary));
+  set('--md-sys-color-on-secondary',hexC(sc.onSecondary));
+  set('--md-sys-color-secondary-container',hexC(sc.secondaryContainer));
+  set('--md-sys-color-on-secondary-container',hexC(sc.onSecondaryContainer));
+  set('--md-sys-color-tertiary',hexC(sc.tertiary));
+  set('--md-sys-color-on-tertiary',hexC(sc.onTertiary));
+  set('--md-sys-color-tertiary-container',hexC(sc.tertiaryContainer));
+  set('--md-sys-color-on-tertiary-container',hexC(sc.onTertiaryContainer));
+  set('--md-sys-color-error',hexC(sc.error));
+  set('--md-sys-color-on-error',hexC(sc.onError));
+  set('--md-sys-color-error-container',hexC(sc.errorContainer));
+  set('--md-sys-color-on-error-container',hexC(sc.onErrorContainer));
+  set('--md-sys-color-surface',hexC(sc.surface));
+  set('--md-sys-color-on-surface',hexC(sc.onSurface));
+  set('--md-sys-color-on-surface-variant',hexC(sc.onSurfaceVariant));
+  set('--md-sys-color-surface-container',surfCont);
+  set('--md-sys-color-surface-container-low',surfLow);
+  set('--md-sys-color-surface-container-high',surfHigh);
+  set('--md-sys-color-surface-container-highest',surfHighest);
+  set('--md-sys-color-surface-container-lowest',surfLowest);
+  set('--md-sys-color-outline',hexC(sc.outline));
+  set('--md-sys-color-outline-variant',hexC(sc.outlineVariant));
+  set('--md-sys-color-inverse-surface',hexC(sc.inverseSurface));
+  set('--md-sys-color-inverse-on-surface',hexC(sc.inverseOnSurface));
+  set('--md-sys-color-inverse-primary',hexC(sc.inversePrimary));
+  /* UI elements use CSS vars — @property enables transition */
+  bg=hexC(sc.surface);
+  if(col==='#0b57d0'||col==='#a8c7fa'||col==='#6750a4'){col=hex;syncAllUI()}
+  drawBg();drawAll();
+}
+
+function syncDarkUI(){
+  darkToggle.selected = followSystem;
+}
+
+function applyDarkMode(){
+  const fade=$('fade');
+  const bg2=$('bgC2');
+  const oldBg=bg;
+
+  /* 1. cover toolbar with fade FIRST — no flash */
+  fade.style.background=oldBg;
+  fade.style.transition='none';
+  void fade.offsetHeight;
+  fade.style.opacity='1';
+
+  /* 2. now safe to switch CSS vars & UI under the cover */
+  void fade.offsetHeight;
+  document.body.dataset.theme=isDark?'dark':'light';
+  bgm=isDark?'dark':'light';
+  $('darkIcon').textContent=isDark?'light_mode':'dark_mode';
+  $('btnDark').title=isDark?'切换浅色':'切换深色';
+  syncDarkUI();
+  applyThemeColor(themeColor);
+  setTool(tool);
+
+  /* 3. draw NEW bg on bgC2 */
+  bg2.width=innerWidth; bg2.height=innerHeight;
+  const c2=bg2.getContext('2d');
+  c2.fillStyle=bg; c2.fillRect(0,0,bg2.width,bg2.height);
+  const g=40;
+  c2.strokeStyle=bgm==='dark'?`rgba(255,255,255,${gridAlpha/100})`:`rgba(0,0,0,${gridAlpha/100})`;
+  c2.lineWidth=.5; c2.beginPath();
+  for(let x=ox%(g*sc);x<bg2.width;x+=g*sc){c2.moveTo(x,0);c2.lineTo(x,bg2.height)}
+  for(let y=oy%(g*sc);y<bg2.height;y+=g*sc){c2.moveTo(0,y);c2.lineTo(bg2.width,y)}
+  c2.stroke();
+
+  /* 4. crossfade bgC2 + fade overlay out together */
+  void bg2.offsetHeight;
+  bg2.style.transition='opacity .5s cubic-bezier(.2,0,0,1)';
+  bg2.style.opacity='1';
+  fade.style.transition='opacity .5s cubic-bezier(.2,0,0,1)';
+  fade.style.opacity='0';
+
+  /* 5. cleanup */
+  setTimeout(()=>{
+    drawBg();drawAll();
+    bg2.style.transition='none';
+    bg2.style.opacity='0';
+    fade.style.transition='none';
+    fade.style.opacity='0';
+  },550);
+}
+
+function toggleDark(){
+  isDark=!isDark;
+  followSystem=false;
+  applyDarkMode();
+}
+
+function positionSettings(){
+  const r=tb.getBoundingClientRect();
+  settingsPanel.style.bottom=(innerHeight-r.top+12)+'px';
+  settingsPanel.style.right=Math.max(16,innerWidth-r.right)+'px';
+}
+
+function toggleSettings(){
+  const isOpen=settingsPanel.classList.contains('open');
+  if(isOpen){settingsPanel.classList.remove('open');settingsOverlay.classList.remove('open')}
+  else{positionSettings();settingsPanel.classList.add('open');settingsOverlay.classList.add('open')}
+}
+
+$('btnSettings').addEventListener('click',toggleSettings);
+settingsOverlay.addEventListener('click',()=>{settingsPanel.classList.remove('open');settingsOverlay.classList.remove('open')});
+
+/* ===== Fullscreen ===== */
+function updateFullscreenIcon(){
+  const icon=$('btnFullscreen').querySelector('md-icon');
+  icon.textContent=document.fullscreenElement?'fullscreen_exit':'fullscreen';
+}
+$('gridInput').addEventListener('input',e=>{
+  const v=e.target.value;
+  const n=+v;
+  if(v===''||isNaN(n)){e.target.error=false;e.target.errorText='';return}
+  if(n<0||n>100){
+    const clamped=Math.max(0,Math.min(100,n));
+    e.target.value=clamped;
+    e.target.error=true;
+    e.target.errorText=n<0?'已设为最低 0%':'已设为最高 100%';
+    gridAlpha=clamped;
+    drawBg();drawAll();
+    setTimeout(()=>{e.target.error=false;e.target.errorText=''},1500);
+    return;
+  }
+  e.target.error=false;
+  e.target.errorText='';
+  gridAlpha=n;
+  drawBg();drawAll();
+});
+$('settingGrid').addEventListener('click',e=>{
+  if(e.target.closest('md-filled-text-field'))return;
+  gridAlpha=5;
+  $('gridInput').value=5;
+  $('gridInput').error=false;
+  $('gridInput').errorText='';
+  drawBg();drawAll();
+  toast('已恢复默认 5%');
+});
+$('settingFullscreen').addEventListener('click',()=>{
+  if(document.fullscreenElement){document.exitFullscreen()}
+  else{document.documentElement.requestFullscreen()}
+});
+document.addEventListener('fullscreenchange',updateFullscreenIcon);
+updateFullscreenIcon();
+$('settingColor').addEventListener('click',()=>{
+  const p=settingsPanel.getBoundingClientRect();
+  themeColorInput.style.left=p.left+'px';
+  themeColorInput.style.top=p.top+'px';
+  themeColorInput.style.width='1px';
+  themeColorInput.style.height='1px';
+  themeColorInput.style.opacity='0.01';
+  themeColorInput.focus();
+  if(themeColorInput.showPicker) themeColorInput.showPicker();
+  else themeColorInput.click();
+});
+themeColorInput.addEventListener('input',e=>applyThemeColor(e.target.value));
+darkToggle.addEventListener('input',()=>{
+  followSystem=darkToggle.selected;
+  if(followSystem){
+    isDark=window.matchMedia('(prefers-color-scheme:dark)').matches;
+    applyDarkMode();
+  }
+});
+$('settingChangelog').addEventListener('click',async()=>{
+  const dlg=$('dlgChangelog');
+  const el=$('changelogContent');
+  try{
+    const res=await fetch('changelog.json');
+    const data=await res.json();
+    el.innerHTML=data.map(v=>`
+      <div class="cl-version">
+        <div class="cl-header">
+          <span class="cl-tag">v${v.version}</span>
+          <span class="cl-date">${v.date}</span>
+        </div>
+        <ul class="cl-list">${v.changes.map(c=>`<li>${c}</li>`).join('')}</ul>
+      </div>
+    `).join('');
+  }catch{
+    el.innerHTML='<p style="color:var(--md-sys-color-error)">无法加载更新记录</p>';
+  }
+  dlg.show();
+});
+$('changelogClose').addEventListener('click',()=>$('dlgChangelog').close());
+
+// Re-position settings when toolbar moves
+const _posObserver=new MutationObserver(()=>{if(settingsPanel.classList.contains('open'))positionSettings()});
+_posObserver.observe(tb,{attributes:true,attributeFilter:['style']});
+
+// System theme listener
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',e=>{
+  if(followSystem){isDark=e.matches;applyDarkMode()}
+});
+
+// Init: show UI immediately, apply theme when ready
+/* show UI immediately — don't wait for MCU */
+tb.style.visibility='visible';
+document.querySelector('.zoom-bar').style.visibility='visible';
+$('cd').style.visibility='visible';
+
+async function initTheme(){
+  await document.fonts.ready;
+  themeColorCircle.style.background=themeColor;
+  themeColorInput.value=themeColor;
+  document.body.dataset.theme=isDark?'dark':'light';
+  bgm=isDark?'dark':'light';
+  $('darkIcon').textContent=isDark?'light_mode':'dark_mode';
+  $('btnDark').title=isDark?'切换浅色':'切换深色';
+  syncDarkUI();
+  applyThemeColor(themeColor);
+  setTool(tool);
+}
+if(window._mcu){initTheme()}
+else{window.addEventListener('mcu-ready',()=>initTheme(),{once:true})}
+
+/* ===== Init ===== */
+setTimeout(()=>{const h=$('hb');if(h){h.style.opacity='0';setTimeout(()=>h.remove(),1200)}},5000);
+resize();updateCursor();setTool('pen');
+</script>
+</body>
+</html>
