@@ -1,0 +1,273 @@
+/* ============================================================
+   Custom Linear Progress - 纯 CSS 完整实现
+   所有类名使用 cust- 前缀，避免与官方冲突
+   ============================================================ */
+
+/* ----- 宿主容器 ----- */
+.cust-linear-progress {
+    /* CSS 变量 */
+    --_active-indicator-color: #6750a4;
+    --_active-indicator-height: 4px;
+    --_track-color: #e6e0e9;
+    --_track-height: 4px;
+    --_track-shape: 0px;
+    
+    /* 布局 */
+    display: flex;
+    position: relative;
+    min-width: 80px;
+    height: var(--_track-height);
+    border-radius: var(--_track-shape);
+    content-visibility: auto;
+    contain: strict;
+}
+
+/* ----- 颜色方案 ----- */
+.cust-linear-progress.primary {
+    --_active-indicator-color: #6750a4;
+}
+.cust-linear-progress.secondary {
+    --_active-indicator-color: #625b71;
+}
+.cust-linear-progress.success {
+    --_active-indicator-color: #2e7d32;
+}
+.cust-linear-progress.error {
+    --_active-indicator-color: #d32f2f;
+}
+.cust-linear-progress.warning {
+    --_active-indicator-color: #ed6c02;
+}
+.cust-linear-progress.info {
+    --_active-indicator-color: #1976d2;
+}
+
+/* ----- 圆角 ----- */
+.cust-linear-progress.rounded {
+    --_track-shape: 4px;
+    border-radius: var(--_track-shape);
+}
+
+/* ----- 高度 ----- */
+.cust-linear-progress.height-6 {
+    --_track-height: 6px;
+    --_active-indicator-height: 6px;
+    height: var(--_track-height);
+}
+.cust-linear-progress.height-8 {
+    --_track-height: 8px;
+    --_active-indicator-height: 8px;
+    height: var(--_track-height);
+    --_track-shape: 4px;
+    border-radius: var(--_track-shape);
+}
+
+/* ----- 内部容器 ----- */
+.cust-linear-progress .progress {
+    position: absolute;
+    inset: 0;
+    direction: ltr;
+    border-radius: inherit;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+}
+
+/* ----- 所有条共用 ----- */
+.cust-linear-progress .bar {
+    position: absolute;
+    animation: none;
+    width: 100%;
+    height: var(--_active-indicator-height);
+    transform-origin: left center;
+    transition: transform 250ms cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.cust-linear-progress .bar-inner {
+    position: absolute;
+    inset: 0;
+    animation: none;
+    background: var(--_active-indicator-color);
+}
+
+/* ----- 主条和副条 (indeterminate 模式) ----- */
+.cust-linear-progress.indeterminate .bar {
+    transition: none;
+}
+
+.cust-linear-progress.indeterminate .primary-bar {
+    inset-inline-start: -145.167%;
+    animation: linear infinite 2s cust-primary-translate;
+}
+
+.cust-linear-progress.indeterminate .primary-bar .bar-inner {
+    animation: linear infinite 2s cust-primary-scale;
+}
+
+.cust-linear-progress.indeterminate .secondary-bar {
+    inset-inline-start: -54.8889%;
+    display: block;
+    animation: linear infinite 2s cust-secondary-translate;
+}
+
+.cust-linear-progress.indeterminate .secondary-bar .bar-inner {
+    animation: linear infinite 2s cust-secondary-scale;
+}
+
+.cust-linear-progress.indeterminate .secondary-bar {
+    display: block;
+}
+
+/* 默认隐藏副条（非 indeterminate 模式） */
+.cust-linear-progress .secondary-bar {
+    display: none;
+}
+
+/* ----- 背景轨道 ----- */
+.cust-linear-progress .inactive-track {
+    position: absolute;
+    inset: 0;
+    background: var(--_track-color);
+    transition: transform 250ms cubic-bezier(0.4, 0, 0.6, 1);
+    transform-origin: left center;
+}
+
+/* ----- 缓冲点阵 (buffering dots) ----- */
+.cust-linear-progress .dots {
+    position: absolute;
+    inset: 0;
+    animation: cust-buffering 250ms infinite linear;
+    background-color: var(--_track-color);
+    background-repeat: repeat-x;
+    -webkit-mask-image: url("data:image/svg+xml,%3Csvg version='1.1' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 2' preserveAspectRatio='xMinYMin slice'%3E%3Ccircle cx='1' cy='1' r='1'/%3E%3C/svg%3E");
+    mask-image: url("data:image/svg+xml,%3Csvg version='1.1' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 2' preserveAspectRatio='xMinYMin slice'%3E%3Ccircle cx='1' cy='1' r='1'/%3E%3C/svg%3E");
+    z-index: -1;
+}
+
+.cust-linear-progress .dots[hidden] {
+    display: none;
+}
+
+/* ============================================================
+   动画关键帧（所有动画名加 cust- 前缀）
+   ============================================================ */
+
+@keyframes cust-primary-scale {
+    0% {
+        transform: scaleX(0.08);
+    }
+    36.65% {
+        animation-timing-function: cubic-bezier(0.334731, 0.12482, 0.785844, 1);
+        transform: scaleX(0.08);
+    }
+    69.15% {
+        animation-timing-function: cubic-bezier(0.06, 0.11, 0.6, 1);
+        transform: scaleX(0.661479);
+    }
+    100% {
+        transform: scaleX(0.08);
+    }
+}
+
+@keyframes cust-secondary-scale {
+    0% {
+        animation-timing-function: cubic-bezier(0.205028, 0.057051, 0.57661, 0.453971);
+        transform: scaleX(0.08);
+    }
+    19.15% {
+        animation-timing-function: cubic-bezier(0.152313, 0.196432, 0.648374, 1.00432);
+        transform: scaleX(0.457104);
+    }
+    44.15% {
+        animation-timing-function: cubic-bezier(0.257759, -0.003163, 0.211762, 1.38179);
+        transform: scaleX(0.72796);
+    }
+    100% {
+        transform: scaleX(0.08);
+    }
+}
+
+@keyframes cust-primary-translate {
+    0% {
+        transform: translateX(0px);
+    }
+    20% {
+        animation-timing-function: cubic-bezier(0.5, 0, 0.701732, 0.495819);
+        transform: translateX(0px);
+    }
+    59.15% {
+        animation-timing-function: cubic-bezier(0.302435, 0.381352, 0.55, 0.956352);
+        transform: translateX(83.6714%);
+    }
+    100% {
+        transform: translateX(200.611%);
+    }
+}
+
+@keyframes cust-secondary-translate {
+    0% {
+        animation-timing-function: cubic-bezier(0.15, 0, 0.515058, 0.409685);
+        transform: translateX(0px);
+    }
+    25% {
+        animation-timing-function: cubic-bezier(0.31033, 0.284058, 0.8, 0.733712);
+        transform: translateX(37.6519%);
+    }
+    48.35% {
+        animation-timing-function: cubic-bezier(0.4, 0.627035, 0.6, 0.902026);
+        transform: translateX(84.3862%);
+    }
+    100% {
+        transform: translateX(160.278%);
+    }
+}
+
+@keyframes cust-buffering {
+    0% {
+        transform: translateX(calc(var(--_track-height, 4px) / 2 * 5));
+    }
+}
+
+/* ============================================================
+   多色动画 (Four Color)
+   ============================================================ */
+
+.cust-linear-progress.four-color.indeterminate .primary-bar .bar-inner {
+    animation-name: cust-primary-scale, cust-four-color;
+    animation-duration: 2s, 4s;
+}
+
+.cust-linear-progress.four-color.indeterminate .secondary-bar .bar-inner {
+    animation-name: cust-secondary-scale, cust-four-color;
+    animation-duration: 2s, 4s;
+}
+
+@keyframes cust-four-color {
+    0% {
+        background: #6750a4;
+    }
+    15% {
+        background: #6750a4;
+    }
+    25% {
+        background: #eaddff;
+    }
+    40% {
+        background: #eaddff;
+    }
+    50% {
+        background: #7d5260;
+    }
+    65% {
+        background: #7d5260;
+    }
+    75% {
+        background: #ffd8e4;
+    }
+    90% {
+        background: #ffd8e4;
+    }
+    100% {
+        background: #6750a4;
+    }
+}
